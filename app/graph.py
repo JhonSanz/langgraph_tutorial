@@ -4,6 +4,9 @@ from app.tools import travily_tool
 from app.utils import BasicToolNode
 from app.schemas import State
 from app.edges import route_tools
+from dotenv import load_dotenv
+
+load_dotenv()
 
 graph_builder = StateGraph(State)
 tools = [travily_tool]
@@ -19,9 +22,9 @@ def chatbot(state: State):
 graph_builder.add_node("chatbot", chatbot)
 graph_builder.add_node("tools", BasicToolNode(tools=tools))
 
-graph_builder.add_edge(START, "chatbot")       # entrada → chatbot
-graph_builder.add_edge("tools", "chatbot")     # al terminar tool → chatbot
-graph_builder.add_edge("chatbot", END)         # chatbot puede terminar
+graph_builder.add_edge(START, "chatbot")  # entrada → chatbot
+graph_builder.add_edge("tools", "chatbot")  # al terminar tool → chatbot
+graph_builder.add_edge("chatbot", END)  # chatbot puede terminar
 
 graph_builder.add_conditional_edges(
     "chatbot",
