@@ -1,12 +1,13 @@
 import json
 
 from langchain_core.messages import ToolMessage
+from langchain_core.tools import BaseTool
 
 
 class BasicToolNode:
     """A node that runs the tools requested in the last AIMessage."""
 
-    def __init__(self, tools: list) -> None:
+    def __init__(self, tools: list[BaseTool]) -> None:
         self.tools_by_name = {tool.name: tool for tool in tools}
 
     def __call__(self, inputs: dict):

@@ -132,3 +132,22 @@ Y eso ejecuta la función real de Python que corresponde a la herramienta.
 - tool.name → viene de cómo LangChain define las herramientas (StructuredTool).
 - inputs["messages"] → es el estado que fluye en el grafo.
 - .tool_calls → es un campo que LangChain mete en el AIMessage cuando el modelo pide usar una herramienta.
+
+
+
+
+---
+
+
+Entonces el flujo es:
+
+1. El chatbot genera una respuesta.
+2. route_tools mira el último mensaje.
+   - Si hay tool_calls → devuelve "tools" (ese es el nodo BasicToolNode).
+   - Si no hay → devuelve END.
+3. El grafo consulta el mapa de resoluciones y dice:
+   - "tools" → ir al nodo "tools".
+   - END → terminar.
+4. Una vez que se ejecuta el nodo "tools", agregaste este edge:
+`graph_builder.add_edge("tools", "chatbot")`
+o sea que al acabar un tool, el flujo vuelve al chatbot.
