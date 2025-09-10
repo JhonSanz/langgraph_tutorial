@@ -10,7 +10,7 @@ class AgentState(TypedDict):
 
 llm = OllamaLLM(
     model="deepseek-r1:8b",
-    base_url="http://192.168.1.14:11434"
+    base_url="http://localhost:11434"
 )
 
 
