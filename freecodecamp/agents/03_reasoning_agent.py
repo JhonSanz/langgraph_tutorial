@@ -96,6 +96,6 @@ def print_stream(stream):
 
 
 # Cambia el formato de la entrada para usar un objeto HumanMessage
-inputs = {"messages": [HumanMessage(content="Add 40 + 12 and then multiply the result by 6. Also tell me a joke please.")]}
+inputs = {"messages": [HumanMessage(content="Add 40 + 12. Add 85 + 25 and then multiply the result by 6. Also tell me a joke please.")]}
 
 print_stream(app.stream(inputs, stream_mode="values"))
