@@ -4,7 +4,7 @@ from langchain_core.messages import BaseMessage, AIMessage, HumanMessage, ToolMe
 from langchain_openai import ChatOpenAI
 from langchain_core.tools import tool
 from langgraph.graph.message import add_messages
-from langgraph.graph import StateGraph, END
+from langgraph.graph import StateGraph, END, START
 from langgraph.prebuilt import ToolNode
 from langchain_ollama import OllamaLLM
 load_dotenv()
@@ -70,8 +70,7 @@ graph.add_node("our_agent", model_call)
 tool_node = ToolNode(tools=tools)
 graph.add_node("tools", tool_node)
 
-graph.set_entry_point("our_agent")
-
+graph.add_edge(START, "our_agent")
 graph.add_conditional_edges(
     "our_agent",
     should_continue,
@@ -80,7 +79,6 @@ graph.add_conditional_edges(
         "end": END,
     },
 )
-
 graph.add_edge("tools", "our_agent")
 
 app = graph.compile()
