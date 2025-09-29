@@ -3,7 +3,13 @@ import sqlite3
 
 
 @tool
-def db_tool(self, query: str) -> str:
+def db_tool(query: str) -> str:
+    """
+    Queries products database given a SQL query as string
+
+    Parameters:
+        - query: str
+    """
     print("\n" * 5, query, "\n" * 5)
 
     lowered = query.lower()
