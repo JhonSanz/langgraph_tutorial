@@ -17,39 +17,45 @@ class GraphState(MessagesState):
 db_tools = [db_tool]
 rag_tools = [rag_tool]
 
-llm_with_tools = ChatOpenAI(model="gpt-4o-mini").bind_tools(db_tools + rag_tools)
-
-
 def expert_database(state: MessagesState):
     db_schema = get_schema_from_sqlite()
     instruction  = f"""
-    You are an expert tasked to query a database given the following schema
+    You are an expert tasked to query a database given the following schema. You HAVE TO generate the query, based on this:
+
     {db_schema}
 
-    IMPORTANT if you don't find useful data or it's empty answer as output 'expert_rag', to delegate
-    the task to other agent.
+    IMPORTANT:
+    - If you don't find useful data or it's empty, output the text 'expert_rag' (to delegate).
+    - If you generate a valid SQL query, call the tool.
+    - If you have the answer, output it directly and end (route 'done').
     """
     sys_msg = SystemMessage(content=instruction)
+    llm_with_tools = ChatOpenAI(model="gpt-4o-mini").bind_tools(db_tools)
     ai_msg = llm_with_tools.invoke([sys_msg] + state["messages"])
 
     if "expert_rag" in ai_msg.content.lower():        
         return {"messages": [ai_msg], "route": "expert_rag"}
+
+    if ai_msg.tool_calls:
+        return {"messages": [ai_msg], "route": "check_tools"}
 
     return {"messages": [ai_msg], "route": "done"}
 
 def expert_rag(state: MessagesState):
    instruction = "You are a helpful assistant tasked to query the chromaDB database to find the answer"
    sys_msg = SystemMessage(content=instruction)
+   llm_with_tools = ChatOpenAI(model="gpt-4o-mini").bind_tools(rag_tools)
    return {"messages": [llm_with_tools.invoke([sys_msg] + state["messages"])]}
-
-
-def human_call(state: MessagesState):
-   return
 
 
 def database_condition(state: MessagesState):
     route = state.get("route", "done")
-    return route
+
+    if route == "expert_rag":
+        return "expert_rag"
+    elif route == "done":
+        return "__end__"
+    return "check_tools"
 
 
 builder = StateGraph(GraphState)
@@ -65,8 +71,9 @@ builder.add_conditional_edges(
     "expert_database",
     database_condition,
     {
-        "check_tools": "database_tools",
-        "expert_rag": "expert_rag",
+        "check_tools": "database_tools", 
+        "expert_rag": "expert_rag",      
+        "__end__": END,                  
     },
 )
 builder.add_conditional_edges(
@@ -81,5 +88,16 @@ builder.add_edge("rag_tools", "expert_rag")
 builder.set_entry_point("expert_database")
 
 graph = builder.compile()
-mermaid_code = graph.get_graph().draw_mermaid()
-print(mermaid_code)
+
+
+# mermaid_code = graph.get_graph().draw_mermaid()
+# print(mermaid_code)
+
+
+result = graph.invoke(
+    {"messages": [HumanMessage(content="How much we made with product Z sales?")]}
+)
+
+print("\n=== Resultados finales ===")
+for msg in result["messages"]:
+    msg.pretty_print()

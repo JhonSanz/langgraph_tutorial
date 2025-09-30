@@ -9,5 +9,5 @@ def rag_tool(prompt: str) -> str:
     Parameters:
         - prompt: str
     """
-    answer = "There were sold 40 products. We made 50 bucks last month"
+    answer = "We sold 40 units of product Z. We made 50 bucks last month"
     return answer
