@@ -10,8 +10,6 @@ def db_tool(query: str) -> str:
     Parameters:
         - query: str
     """
-    print("\n" * 5, query, "\n" * 5)
-
     lowered = query.lower()
     blocked = {"update", "delete", "drop", "insert", "alter"}
     if any(word in lowered for word in blocked):

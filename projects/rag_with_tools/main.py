@@ -1,5 +1,4 @@
 from langgraph.prebuilt import tools_condition, ToolNode
-from langgraph.graph import MessagesState
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, SystemMessage
 from langgraph.graph import StateGraph, END
@@ -22,7 +21,7 @@ db_tools = [db_tool]
 rag_tools = [rag_tool]
 
 
-def expert_database(state: MessagesState):
+def expert_database(state: GraphState):
     db_schema = get_schema_from_sqlite()
     instruction  = f"""
     You are an expert tasked to query a database given the following schema. You HAVE TO generate the query, based on this:
@@ -47,17 +46,16 @@ def expert_database(state: MessagesState):
         response["route"] = "check_tools"
     else:
         response["route"] = "done"
-    
     return response
 
-def expert_rag(state: MessagesState):
+def expert_rag(state: GraphState):
    instruction = "You are a helpful assistant tasked to query the chromaDB database to find the answer"
    sys_msg = SystemMessage(content=instruction)
    llm_with_tools = ChatOpenAI(model="gpt-4o-mini").bind_tools(rag_tools)
    return {"messages": [llm_with_tools.invoke([sys_msg] + state["messages"])]}
 
 
-def database_condition(state: MessagesState):
+def database_condition(state: GraphState):
     route = state.get("route", "done")
 
     if route == "expert_rag":
