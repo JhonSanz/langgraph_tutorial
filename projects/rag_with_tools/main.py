@@ -7,15 +7,20 @@ from dotenv import load_dotenv
 from utils.inspect_schema_db import get_schema_from_sqlite
 from utils.db_tool import db_tool
 from utils.rag_tool import rag_tool
+from typing_extensions import TypedDict, Annotated
+from langgraph.graph.message import add_messages
+from langchain_core.messages import AnyMessage
 
 load_dotenv()
 
 
-class GraphState(MessagesState):
+class GraphState(TypedDict):
+    messages: Annotated[list[AnyMessage], add_messages]
     route: str
 
 db_tools = [db_tool]
 rag_tools = [rag_tool]
+
 
 def expert_database(state: MessagesState):
     db_schema = get_schema_from_sqlite()
@@ -33,13 +38,17 @@ def expert_database(state: MessagesState):
     llm_with_tools = ChatOpenAI(model="gpt-4o-mini").bind_tools(db_tools)
     ai_msg = llm_with_tools.invoke([sys_msg] + state["messages"])
 
-    if "expert_rag" in ai_msg.content.lower():        
-        return {"messages": [ai_msg], "route": "expert_rag"}
-
-    if ai_msg.tool_calls:
-        return {"messages": [ai_msg], "route": "check_tools"}
-
-    return {"messages": [ai_msg], "route": "done"}
+    response = {
+        "messages": [ai_msg] 
+    }
+    if "expert_rag" in ai_msg.content.lower():
+        response["route"] = "expert_rag"
+    elif ai_msg.tool_calls:
+        response["route"] = "check_tools"
+    else:
+        response["route"] = "done"
+    
+    return response
 
 def expert_rag(state: MessagesState):
    instruction = "You are a helpful assistant tasked to query the chromaDB database to find the answer"
@@ -95,7 +104,7 @@ graph = builder.compile()
 
 
 result = graph.invoke(
-    {"messages": [HumanMessage(content="How much we made with product Z sales?")]}
+    {"messages": [HumanMessage(content="How much we made with product A sales?")]}
 )
 
 print("\n=== Resultados finales ===")

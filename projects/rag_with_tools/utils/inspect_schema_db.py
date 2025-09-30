@@ -1,7 +1,10 @@
 import sqlite3
+import os
 
 
 def get_schema_from_sqlite(db_path="finanzas.db"):
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    db_path = os.path.join(BASE_DIR, "finanzas.db")
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
 
