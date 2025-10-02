@@ -1,0 +1,4 @@
+- recibir como entrada el nombre de una empresa
+- hacer que busque en tavily y con el webscrapper
+- generar un rag para guardar la info
+- hacerle preguntas al rag
