@@ -1,0 +1,27 @@
+sql:
+  - name: sales_db
+    type: postgres
+    description: "Base de datos de ventas. Contiene información sobre productos y transacciones realizadas."
+    schema: |
+      Table sales(id, product, amount, date)
+      Table products(id, name, price)
+
+  - name: hr_db
+    type: sqlite
+    description: "Base de datos de recursos humanos. Incluye empleados y su información de nómina."
+    schema: |
+      Table employees(id, name, role)
+      Table payroll(id, employee_id, salary)
+
+mongo:
+  - name: users_mongo
+    type: mongodb
+    description: "Base MongoDB con información de usuarios registrados."
+    collections:
+      - users: { fields: ["id", "name", "email", "signup_date"] }
+
+  - name: logs_mongo
+    type: mongodb
+    description: "Base MongoDB con registros de logs del sistema."
+    collections:
+      - logs: { fields: ["id", "timestamp", "message"] }

@@ -105,4 +105,4 @@ print("\n=== Resultados finales ===")
 for msg in result["messages"]:
     msg.pretty_print()
 
-# add sumarize step
+# https://chatgpt.com/c/68dedacb-2ea0-8326-9a4c-8fb83315c530
