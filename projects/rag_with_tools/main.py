@@ -3,9 +3,9 @@ from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, SystemMessage
 from langgraph.graph import StateGraph, END
 from dotenv import load_dotenv
-from utils.inspect_schema_db import get_schema_from_sqlite
-from utils.db_tool import db_tool
-from utils.rag_tool import rag_tool
+from tools.sqlite_tool import get_schema_from_sqlite
+from projects.rag_with_tools.tools.sqlite_tool import db_tool
+from projects.rag_with_tools.tools.rag_tool import rag_tool
 from typing_extensions import TypedDict, Annotated
 from langgraph.graph.message import add_messages
 from langchain_core.messages import AnyMessage
@@ -29,13 +29,9 @@ rag_tools = [rag_tool]
 
 
 def data_router(state: GraphState):
-    print(DATA_SOURCES["sql"][0]["name"])        # sales_db
-    print(DATA_SOURCES["sql"][0]["description"]) # "Base de datos de ventas..."
-
     user_query = next((m for m in state["messages"] if isinstance(m, HumanMessage)), None)
     query_text = user_query.content if user_query else ""
 
-    # Construimos catálogo resumido: solo nombres + descripciones
     catalog_str = ""
     for engine, sources in DATA_SOURCES.items():
         for s in sources:
