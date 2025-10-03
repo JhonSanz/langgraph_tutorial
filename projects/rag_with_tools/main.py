@@ -45,12 +45,26 @@ def data_router(state: GraphState):
     Available sources:
     {catalog_str}
 
+    IMPORTANT: You MUST return the appropriate route to delegate to the next node.
+    - If the best source uses SQL database, return route: "expert_sql"
+    - If the best source uses MongoDB/NoSQL database, return route: "expert_nosql"
+
     Output JSON only:
-    {{"engine": "<sql|mongo>", "source": "<name>"}}
+    {{"route": "<expert_sql|expert_nosql>", "source": "<name>"}}
     """
 
     llm = ChatOpenAI(model="gpt-4o-mini")
     ai_msg = llm.invoke([SystemMessage(content=instruction), HumanMessage(content=query_text)])
+
+    # Parse the response and set the route
+    import json
+    try:
+        response_data = json.loads(ai_msg.content)
+        route = response_data.get("route", "expert_sql")
+    except:
+        route = "expert_sql"  # Default fallback
+
+    return {"route": route}
 
 
 def expert_sql(state: GraphState):
