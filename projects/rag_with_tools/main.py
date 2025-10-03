@@ -9,8 +9,15 @@ from utils.rag_tool import rag_tool
 from typing_extensions import TypedDict, Annotated
 from langgraph.graph.message import add_messages
 from langchain_core.messages import AnyMessage
+import yaml
+from pathlib import Path
 
 load_dotenv()
+
+CONFIG_PATH = Path(__file__).parent / "datasources.yaml"
+
+with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+    DATA_SOURCES = yaml.safe_load(f)
 
 
 class GraphState(TypedDict):
@@ -21,7 +28,36 @@ db_tools = [db_tool]
 rag_tools = [rag_tool]
 
 
-def expert_database(state: GraphState):
+def data_router(state: GraphState):
+    print(DATA_SOURCES["sql"][0]["name"])        # sales_db
+    print(DATA_SOURCES["sql"][0]["description"]) # "Base de datos de ventas..."
+
+    user_query = next((m for m in state["messages"] if isinstance(m, HumanMessage)), None)
+    query_text = user_query.content if user_query else ""
+
+    # Construimos catálogo resumido: solo nombres + descripciones
+    catalog_str = ""
+    for engine, sources in DATA_SOURCES.items():
+        for s in sources:
+            catalog_str += f"- {s['name']} ({engine}): {s.get('description', 'No description')}\n"
+
+    instruction = f"""
+    You are a routing agent. Decide the best source for the following query:
+
+    User query: "{query_text}"
+
+    Available sources:
+    {catalog_str}
+
+    Output JSON only:
+    {{"engine": "<sql|mongo>", "source": "<name>"}}
+    """
+
+    llm = ChatOpenAI(model="gpt-4o-mini")
+    ai_msg = llm.invoke([SystemMessage(content=instruction), HumanMessage(content=query_text)])
+
+
+def expert_sql(state: GraphState):
     db_schema = get_schema_from_sqlite()
     instruction  = f"""
     You are an expert tasked to query a database given the following schema. You HAVE TO generate the query, based on this:
@@ -48,6 +84,9 @@ def expert_database(state: GraphState):
         response["route"] = END
     return response
 
+def expert_nosql(state: GraphState):
+    pass
+
 def expert_rag(state: GraphState):
     user_query = next((msg for msg in state["messages"] if isinstance(msg, HumanMessage)), None)
     if user_query is None:
@@ -68,7 +107,8 @@ def database_condition(state: GraphState):
 
 builder = StateGraph(GraphState)
 
-builder.add_node("expert_database", expert_database)
+builder.add_node("expert_sql", expert_sql)
+builder.add_node("expert_nosql", expert_nosql)
 builder.add_node("expert_rag", expert_rag)
 
 builder.add_node("database_tools", ToolNode(db_tools))
@@ -76,7 +116,7 @@ builder.add_node("rag_tools", ToolNode(rag_tools))
 
 
 builder.add_conditional_edges(
-    "expert_database",
+    "expert_sql",
     database_condition,
 )
 builder.add_conditional_edges(
@@ -85,10 +125,10 @@ builder.add_conditional_edges(
     {"tools": "rag_tools", "__end__": END},
 )
 
-builder.add_edge("database_tools", "expert_database")
+builder.add_edge("database_tools", "expert_sql")
 builder.add_edge("rag_tools", "expert_rag")
 
-builder.set_entry_point("expert_database")
+builder.set_entry_point("expert_sql")
 
 graph = builder.compile()
 

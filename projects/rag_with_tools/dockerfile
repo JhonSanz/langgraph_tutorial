@@ -1,0 +1,25 @@
+# Imagen base
+FROM python:3.11-slim
+
+# Setear directorio de trabajo
+WORKDIR /app
+
+# Instalar dependencias del sistema (ej: para psycopg2, sqlite y otros bindings)
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    libpq-dev \
+    sqlite3 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copiar requirements e instalar dependencias
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copiar el resto del código
+COPY . .
+
+# Variable de entorno para Python
+ENV PYTHONUNBUFFERED=1
+
+# Comando por defecto
+CMD ["python", "main.py"]
