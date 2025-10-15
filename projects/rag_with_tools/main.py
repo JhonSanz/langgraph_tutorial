@@ -3,6 +3,7 @@ from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, SystemMessage
 from langgraph.graph import StateGraph, END
 from dotenv import load_dotenv
+from pydantic import BaseModel, Field
 from tools.sqlite_tool import get_schema_from_sqlite
 from projects.rag_with_tools.tools.sqlite_tool import db_tool
 from projects.rag_with_tools.tools.rag_tool import rag_tool
@@ -24,6 +25,12 @@ class GraphState(TypedDict):
     messages: Annotated[list[AnyMessage], add_messages]
     route: str
 
+
+class RouteDecision(BaseModel):
+    route: str = Field(description="Must be either 'expert_sql' or 'expert_nosql'")
+    source: str = Field(description="Name of the selected data source")
+
+
 db_tools = [db_tool]
 rag_tools = [rag_tool]
 
@@ -38,34 +45,44 @@ def data_router(state: GraphState):
             catalog_str += f"- {s['name']} ({engine}): {s.get('description', 'No description')}\n"
 
     instruction = f"""
-    You are a routing agent. Decide the best source for the following query:
+You are a routing agent for a data query system. Analyze the user's query and select the most appropriate data source.
 
-    User query: "{query_text}"
+User query: "{query_text}"
 
-    Available sources:
-    {catalog_str}
+Available sources:
+{catalog_str}
 
-    IMPORTANT: You MUST return the appropriate route to delegate to the next node.
-    - If the best source uses SQL database, return route: "expert_sql"
-    - If the best source uses MongoDB/NoSQL database, return route: "expert_nosql"
+ROUTING RULES:
+- If the best source uses SQL database → return route: "expert_sql"
+- If the best source uses MongoDB/NoSQL database → return route: "expert_nosql"
 
-    Output JSON only:
-    {{"route": "<expert_sql|expert_nosql>", "source": "<name>"}}
-    """
+You MUST respond with valid JSON containing:
+- "route": the expert type (expert_sql or expert_nosql)
+- "source": the exact name of the data source
 
-    llm = ChatOpenAI(model="gpt-4o-mini")
-    ai_msg = llm.invoke([SystemMessage(content=instruction), HumanMessage(content=query_text)])
+Example response:
+{{"route": "expert_sql", "source": "users_db"}}
+"""
 
-    # Parse the response and set the route
-    import json
-    try:
-        response_data = json.loads(ai_msg.content)
-        route = response_data.get("route", "expert_sql")
-    except:
-        route = "expert_sql"  # Default fallback
+    # Opción 3: JSON mode
+    llm = ChatOpenAI(
+        model="gpt-4o-mini",
+        model_kwargs={"response_format": {"type": "json_object"}}
+    )
+    
+    # Opción 1: Structured output
+    structured_llm = llm.with_structured_output(RouteDecision)
+    
+    # Invoca con el prompt mejorado
+    result = structured_llm.invoke([
+        SystemMessage(content=instruction),
+        HumanMessage(content=query_text)
+    ])
 
-    return {"route": route}
-
+    return {
+        "route": result.route,
+        "selected_source": result.source
+    }
 
 def expert_sql(state: GraphState):
     db_schema = get_schema_from_sqlite()

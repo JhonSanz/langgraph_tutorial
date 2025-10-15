@@ -6,8 +6,8 @@ sql:
       Table sales(id, product, amount, date)
       Table products(id, name, price)
 
-  - name: hr_db
-    type: sqlite
+  - name: human_resources_db
+    type: mysql
     description: "Base de datos de recursos humanos. Incluye empleados y su información de nómina."
     schema: |
       Table employees(id, name, role)
@@ -19,9 +19,3 @@ mongo:
     description: "Base MongoDB con información de usuarios registrados."
     collections:
       - users: { fields: ["id", "name", "email", "signup_date"] }
-
-  - name: logs_mongo
-    type: mongodb
-    description: "Base MongoDB con registros de logs del sistema."
-    collections:
-      - logs: { fields: ["id", "timestamp", "message"] }
