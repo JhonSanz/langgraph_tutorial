@@ -1,1 +1,6 @@
-- check later https://github.com/langchain-ai/langgraph/blob/main/docs/docs/tutorials/sql/sql-agent.md
+
+
+## crear la data de pruebas
+
+- docker exec -i postgres_db psql -U myuser -d mydatabase < populate/postgres_sales.sql
+- docker exec -i mysql_db mysql -umyuser -pmypassword mydatabase < populate/mysql_hr.sql
