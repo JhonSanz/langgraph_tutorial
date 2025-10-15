@@ -4,8 +4,8 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from langgraph.graph import StateGraph, END
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
-from tools.sqlite_tool import get_schema_from_sqlite
-from projects.rag_with_tools.tools.sqlite_tool import db_tool
+from projects.rag_with_tools.tools.sql_tool import db_tool, set_sql_connector
+from projects.rag_with_tools.tools.sql_connector import SQLConnector, get_sql_connector_from_datasource
 from projects.rag_with_tools.tools.rag_tool import rag_tool
 from typing_extensions import TypedDict, Annotated
 from langgraph.graph.message import add_messages
@@ -24,6 +24,7 @@ with open(CONFIG_PATH, "r", encoding="utf-8") as f:
 class GraphState(TypedDict):
     messages: Annotated[list[AnyMessage], add_messages]
     route: str
+    selected_source: str  # Track which data source was selected
 
 
 class RouteDecision(BaseModel):
@@ -85,9 +86,46 @@ Example response:
     }
 
 def expert_sql(state: GraphState):
-    db_schema = get_schema_from_sqlite()
-    instruction  = f"""
-    You are an expert tasked to query a database given the following schema. You HAVE TO generate the query, based on this:
+    # Get the selected data source from state
+    selected_source = state.get("selected_source", "")
+
+    if not selected_source:
+        return {
+            "messages": [SystemMessage(content="❌ Error: No se especificó una fuente de datos en el state")],
+            "route": END
+        }
+
+    # Find the source config first
+    source_config = None
+    for source in DATA_SOURCES.get("sql", []):
+        if source["name"] == selected_source:
+            source_config = source
+            break
+
+    if not source_config:
+        return {
+            "messages": [SystemMessage(content=f"❌ Error: No se encontró la fuente de datos SQL '{selected_source}' en datasources.yaml")],
+            "route": END
+        }
+
+    # Create connector using the helper function
+    connector = get_sql_connector_from_datasource(selected_source, DATA_SOURCES)
+
+    if connector is None:
+        return {
+            "messages": [SystemMessage(content=f"❌ Error: No se pudo crear el conector para '{selected_source}'")],
+            "route": END
+        }
+
+    # Set the connector globally for the db_tool
+    set_sql_connector(connector)
+
+    # Get database type and schema
+    db_type: str = source_config["type"]
+    db_schema: str = source_config.get("schema", connector.get_schema())
+
+    instruction = f"""
+    You are an expert tasked to query a {db_type.upper()} database given the following schema. You HAVE TO generate the query, based on this:
 
     {db_schema}
 
@@ -95,13 +133,14 @@ def expert_sql(state: GraphState):
     - If you don't find useful data or it's empty, output the text 'expert_rag' (to delegate).
     - If you generate a valid SQL query, call the tool.
     - If you have the answer, output it directly and end (route 'done').
+    - Use {db_type.upper()} syntax for your queries.
     """
     sys_msg = SystemMessage(content=instruction)
     llm_with_tools = ChatOpenAI(model="gpt-4o-mini").bind_tools(db_tools)
     ai_msg = llm_with_tools.invoke([sys_msg] + state["messages"])
 
     response = {
-        "messages": [ai_msg] 
+        "messages": [ai_msg]
     }
     if "expert_rag" in ai_msg.content.lower():
         response["route"] = "expert_rag"

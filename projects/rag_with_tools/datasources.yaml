@@ -2,16 +2,20 @@ sql:
   - name: sales_db
     type: postgres
     description: "Base de datos de ventas. Contiene información sobre productos y transacciones realizadas."
-    schema: |
-      Table sales(id, product, amount, date)
-      Table products(id, name, price)
+    host: localhost
+    port: 5432
+    database: mydatabase
+    username: myuser
+    password: mypassword
 
   - name: human_resources_db
     type: mysql
     description: "Base de datos de recursos humanos. Incluye empleados y su información de nómina."
-    schema: |
-      Table employees(id, name, role)
-      Table payroll(id, employee_id, salary)
+    host: localhost
+    port: 3306
+    database: mydatabase
+    username: myuser
+    password: mypassword
 
 mongo:
   - name: users_mongo
