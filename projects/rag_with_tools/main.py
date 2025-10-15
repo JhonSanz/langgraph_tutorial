@@ -5,7 +5,10 @@ from langgraph.graph import StateGraph, END
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 from projects.rag_with_tools.tools.sql_tool import db_tool, set_sql_connector
-from projects.rag_with_tools.tools.sql_connector import SQLConnector, get_sql_connector_from_datasource
+from projects.rag_with_tools.tools.sql_connector import (
+    SQLConnector,
+    get_sql_connector_from_datasource,
+)
 from projects.rag_with_tools.tools.rag_tool import rag_tool
 from typing_extensions import TypedDict, Annotated
 from langgraph.graph.message import add_messages
@@ -37,13 +40,17 @@ rag_tools = [rag_tool]
 
 
 def data_router(state: GraphState):
-    user_query = next((m for m in state["messages"] if isinstance(m, HumanMessage)), None)
+    user_query = next(
+        (m for m in state["messages"] if isinstance(m, HumanMessage)), None
+    )
     query_text = user_query.content if user_query else ""
 
     catalog_str = ""
     for engine, sources in DATA_SOURCES.items():
         for s in sources:
-            catalog_str += f"- {s['name']} ({engine}): {s.get('description', 'No description')}\n"
+            catalog_str += (
+                f"- {s['name']} ({engine}): {s.get('description', 'No description')}\n"
+            )
 
     instruction = f"""
 You are a routing agent for a data query system. Analyze the user's query and select the most appropriate data source.
@@ -67,23 +74,19 @@ Example response:
 
     # Opción 3: JSON mode
     llm = ChatOpenAI(
-        model="gpt-4o-mini",
-        model_kwargs={"response_format": {"type": "json_object"}}
+        model="gpt-4o-mini", model_kwargs={"response_format": {"type": "json_object"}}
     )
-    
+
     # Opción 1: Structured output
     structured_llm = llm.with_structured_output(RouteDecision)
-    
-    # Invoca con el prompt mejorado
-    result = structured_llm.invoke([
-        SystemMessage(content=instruction),
-        HumanMessage(content=query_text)
-    ])
 
-    return {
-        "route": result.route,
-        "selected_source": result.source
-    }
+    # Invoca con el prompt mejorado
+    result = structured_llm.invoke(
+        [SystemMessage(content=instruction), HumanMessage(content=query_text)]
+    )
+
+    return {"route": result.route, "selected_source": result.source}
+
 
 def expert_sql(state: GraphState):
     # Get the selected data source from state
@@ -91,8 +94,12 @@ def expert_sql(state: GraphState):
 
     if not selected_source:
         return {
-            "messages": [SystemMessage(content="❌ Error: No se especificó una fuente de datos en el state")],
-            "route": END
+            "messages": [
+                SystemMessage(
+                    content="❌ Error: No se especificó una fuente de datos en el state"
+                )
+            ],
+            "route": END,
         }
 
     # Find the source config first
@@ -104,8 +111,12 @@ def expert_sql(state: GraphState):
 
     if not source_config:
         return {
-            "messages": [SystemMessage(content=f"❌ Error: No se encontró la fuente de datos SQL '{selected_source}' en datasources.yaml")],
-            "route": END
+            "messages": [
+                SystemMessage(
+                    content=f"❌ Error: No se encontró la fuente de datos SQL '{selected_source}' en datasources.yaml"
+                )
+            ],
+            "route": END,
         }
 
     # Create connector using the helper function
@@ -113,8 +124,12 @@ def expert_sql(state: GraphState):
 
     if connector is None:
         return {
-            "messages": [SystemMessage(content=f"❌ Error: No se pudo crear el conector para '{selected_source}'")],
-            "route": END
+            "messages": [
+                SystemMessage(
+                    content=f"❌ Error: No se pudo crear el conector para '{selected_source}'"
+                )
+            ],
+            "route": END,
         }
 
     # Set the connector globally for the db_tool
@@ -139,9 +154,7 @@ def expert_sql(state: GraphState):
     llm_with_tools = ChatOpenAI(model="gpt-4o-mini").bind_tools(db_tools)
     ai_msg = llm_with_tools.invoke([sys_msg] + state["messages"])
 
-    response = {
-        "messages": [ai_msg]
-    }
+    response = {"messages": [ai_msg]}
     if "expert_rag" in ai_msg.content.lower():
         response["route"] = "expert_rag"
     elif ai_msg.tool_calls:
@@ -150,13 +163,17 @@ def expert_sql(state: GraphState):
         response["route"] = END
     return response
 
+
 def expert_nosql(state: GraphState):
     pass
 
+
 def expert_rag(state: GraphState):
-    user_query = next((msg for msg in state["messages"] if isinstance(msg, HumanMessage)), None)
+    user_query = next(
+        (msg for msg in state["messages"] if isinstance(msg, HumanMessage)), None
+    )
     if user_query is None:
-        clean_history = state["messages"] 
+        clean_history = state["messages"]
     else:
         clean_history = [user_query]
 
