@@ -29,6 +29,7 @@ class GraphState(TypedDict):
     messages: Annotated[list[AnyMessage], add_messages]
     route: str
     selected_source: str  # Track which data source was selected
+    retry_count: int  # Track retry attempts for database queries
 
 
 class RouteDecision(BaseModel):
@@ -91,8 +92,12 @@ Example response:
 
 
 def expert_sql(state: GraphState):
+    """SQL expert that can retry queries up to MAX_RETRIES times."""
+    MAX_RETRIES = 2
+
     # Get the selected data source from state
     selected_source = state.get("selected_source", "")
+    retry_count = state.get("retry_count", 0)
 
     if not selected_source:
         return {
@@ -101,7 +106,7 @@ def expert_sql(state: GraphState):
                     content="❌ Error: No se especificó una fuente de datos en el state"
                 )
             ],
-            "route": END,
+            "route": "db_result_evaluator",
         }
 
     # Find the source config first
@@ -118,7 +123,7 @@ def expert_sql(state: GraphState):
                     content=f"❌ Error: No se encontró la fuente de datos SQL '{selected_source}' en datasources.yaml"
                 )
             ],
-            "route": END,
+            "route": "db_result_evaluator",
         }
 
     # Create connector using the helper function
@@ -131,7 +136,7 @@ def expert_sql(state: GraphState):
                     content=f"❌ Error: No se pudo crear el conector para '{selected_source}'"
                 )
             ],
-            "route": END,
+            "route": "db_result_evaluator",
         }
 
     # Set the connector globally for the db_tool
@@ -141,33 +146,210 @@ def expert_sql(state: GraphState):
     db_type: str = source_config["type"]
     db_schema: str = source_config.get("schema", connector.get_schema())
 
+    # Add context about retries if this is a retry
+    retry_context = ""
+    if retry_count > 0:
+        retry_context = f"\n\nNOTE: This is retry attempt {retry_count}/{MAX_RETRIES}. The previous query may have failed or returned no results. Try a different approach or query."
+
     instruction = f"""
     You are an expert tasked to query a {db_type.upper()} database given the following schema. You HAVE TO generate the query, based on this:
 
     {db_schema}
 
     IMPORTANT:
-    - If you don't find useful data or it's empty, output the text 'expert_rag' (to delegate).
-    - If you generate a valid SQL query, call the tool.
-    - If you have the answer, output it directly and end (route 'done').
+    - Generate a valid SQL query and call the tool to execute it.
     - Use {db_type.upper()} syntax for your queries.
+    - Be precise and avoid syntax errors.{retry_context}
     """
     sys_msg = SystemMessage(content=instruction)
     llm_with_tools = ChatOpenAI(model="gpt-4o-mini").bind_tools(sql_db_tools)
     ai_msg = llm_with_tools.invoke([sys_msg] + state["messages"])
 
-    response = {"messages": [ai_msg]}
-    if "expert_rag" in ai_msg.content.lower():
-        response["route"] = "expert_rag"
-    elif ai_msg.tool_calls:
+    # Increment retry count
+    new_retry_count = retry_count + 1
+
+    response = {"messages": [ai_msg], "retry_count": new_retry_count}
+
+    if ai_msg.tool_calls:
+        # Has tool calls, execute them
         response["route"] = "sql_db_tools"
     else:
-        response["route"] = END
+        # No tool calls, go to evaluator
+        response["route"] = "db_result_evaluator"
+
     return response
 
 
 def expert_nosql(state: GraphState):
-    pass
+    """NoSQL expert that can retry queries up to MAX_RETRIES times."""
+    MAX_RETRIES = 2
+
+    # Get the selected data source from state
+    selected_source = state.get("selected_source", "")
+    retry_count = state.get("retry_count", 0)
+
+    if not selected_source:
+        return {
+            "messages": [
+                SystemMessage(
+                    content="❌ Error: No se especificó una fuente de datos en el state"
+                )
+            ],
+            "route": "db_result_evaluator",
+        }
+
+    # Find the source config
+    source_config = None
+    for source in DATA_SOURCES.get("mongodb", []):
+        if source["name"] == selected_source:
+            source_config = source
+            break
+
+    if not source_config:
+        return {
+            "messages": [
+                SystemMessage(
+                    content=f"❌ Error: No se encontró la fuente de datos NoSQL '{selected_source}' en datasources.yaml"
+                )
+            ],
+            "route": "db_result_evaluator",
+        }
+
+    # Get MongoDB metadata
+    database = source_config.get("database", "")
+    collections = source_config.get("collections", [])
+    schema_info = source_config.get("schema", "No schema provided")
+
+    # Add context about retries if this is a retry
+    retry_context = ""
+    if retry_count > 0:
+        retry_context = f"\n\nNOTE: This is retry attempt {retry_count}/{MAX_RETRIES}. The previous query may have failed or returned no results. Try a different approach or query."
+
+    instruction = f"""
+    You are an expert tasked to query a MongoDB database.
+
+    Database: {database}
+    Available collections: {', '.join(collections)}
+    Schema information: {schema_info}
+
+    IMPORTANT:
+    - Generate a valid MongoDB query and call the mongo_tool to execute it.
+    - The mongo_tool requires: database name, collection name, and query as JSON string.
+    - Use proper MongoDB query syntax (e.g., {{"field": "value"}}).
+    - Be precise and avoid syntax errors.{retry_context}
+    """
+    sys_msg = SystemMessage(content=instruction)
+    llm_with_tools = ChatOpenAI(model="gpt-4o-mini").bind_tools(nosql_db_tools)
+    ai_msg = llm_with_tools.invoke([sys_msg] + state["messages"])
+
+    # Increment retry count
+    new_retry_count = retry_count + 1
+
+    response = {"messages": [ai_msg], "retry_count": new_retry_count}
+
+    if ai_msg.tool_calls:
+        # Has tool calls, execute them
+        response["route"] = "nosql_db_tools"
+    else:
+        # No tool calls, go to evaluator
+        response["route"] = "db_result_evaluator"
+
+    return response
+
+
+def db_result_evaluator(state: GraphState):
+    """Evaluates database query results and decides whether to retry, go to RAG, or end."""
+    MAX_RETRIES = 2
+
+    messages = state["messages"]
+    retry_count = state.get("retry_count", 0)
+
+    # Find the last tool message (database result)
+    last_tool_msg = None
+    for msg in reversed(messages):
+        if hasattr(msg, 'type') and msg.type == 'tool':
+            last_tool_msg = msg
+            break
+
+    # If no tool message found, check if there's an error message
+    if not last_tool_msg:
+        # Check if the last message is an error from expert_sql
+        last_msg = messages[-1] if messages else None
+        if last_msg and isinstance(last_msg, SystemMessage) and "Error" in last_msg.content:
+            # Database connection or config error, go to RAG as fallback
+            return {"route": "expert_rag"}
+        # No tool was called, go to end
+        return {"route": END}
+
+    tool_content = str(last_tool_msg.content).strip()
+
+    # Criteria for unsatisfactory results
+    is_empty = (
+        not tool_content
+        or tool_content == "[]"
+        or tool_content == "{}"
+        or tool_content == "()"
+        or tool_content.lower() == "none"
+    )
+    is_error = "error" in tool_content.lower()
+    is_no_results = (
+        "no results" in tool_content.lower()
+        or "empty" in tool_content.lower()
+        or "no rows" in tool_content.lower()
+    )
+
+    # If results are clearly unsatisfactory
+    if is_empty or is_error or is_no_results:
+        # Check if we can retry
+        if retry_count < MAX_RETRIES:
+            # Retry: go back to the appropriate expert based on selected_source
+            source_type = state.get("route", "expert_sql")
+            # Extract the expert type from route (could be expert_sql or expert_nosql)
+            if "nosql" in source_type:
+                return {"route": "expert_nosql"}
+            else:
+                return {"route": "expert_sql"}
+        else:
+            # Max retries reached, fallback to RAG
+            return {"route": "expert_rag"}
+
+    # Results look good, use LLM to make final evaluation
+    user_query = next(
+        (m for m in messages if isinstance(m, HumanMessage)), None
+    )
+    user_question = user_query.content if user_query else "the user's question"
+
+    eval_prompt = f"""You are evaluating database query results.
+
+User's question: {user_question}
+
+Database results: {tool_content}
+
+Determine if these results adequately answer the user's question.
+Respond with ONLY one word: "satisfactory" or "unsatisfactory".
+
+If the results contain relevant data that could answer the question, say "satisfactory".
+If the results are empty, irrelevant, or don't help answer the question, say "unsatisfactory".
+"""
+
+    llm = ChatOpenAI(model="gpt-4o-mini")
+    eval_result = llm.invoke([HumanMessage(content=eval_prompt)])
+
+    if "unsatisfactory" in eval_result.content.lower():
+        # Check if we can retry
+        if retry_count < MAX_RETRIES:
+            # Retry
+            source_type = state.get("route", "expert_sql")
+            if "nosql" in source_type:
+                return {"route": "expert_nosql"}
+            else:
+                return {"route": "expert_sql"}
+        else:
+            # Max retries reached, fallback to RAG
+            return {"route": "expert_rag"}
+
+    # Results are satisfactory
+    return {"route": END}
 
 
 def expert_rag(state: GraphState):
@@ -192,6 +374,7 @@ builder.add_node("data_router", data_router)
 builder.add_node("expert_sql", expert_sql)
 builder.add_node("expert_nosql", expert_nosql)
 builder.add_node("expert_rag", expert_rag)
+builder.add_node("db_result_evaluator", db_result_evaluator)
 
 # TOOLS
 builder.add_node("sql_db_tools", ToolNode(sql_db_tools))
@@ -199,6 +382,8 @@ builder.add_node("nosql_db_tools", ToolNode(nosql_db_tools))
 builder.add_node("rag_tools", ToolNode(rag_tools))
 
 
+# EDGES
+# Entry point: data_router decides which expert to use
 builder.add_conditional_edges(
     "data_router",
     lambda state: state.get("route", END),
@@ -207,24 +392,51 @@ builder.add_conditional_edges(
         "expert_nosql": "expert_nosql",
     }
 )
+
+# expert_sql can either call tools or go to evaluator
 builder.add_conditional_edges(
     "expert_sql",
-    tools_condition,
-    {"tools": "sql_db_tools", "__end__": END},
+    lambda state: state.get("route", END),
+    {
+        "sql_db_tools": "sql_db_tools",
+        "db_result_evaluator": "db_result_evaluator",
+    }
 )
+
+# expert_nosql can either call tools or go to evaluator
 builder.add_conditional_edges(
     "expert_nosql",
-    tools_condition,
-    {"tools": "nosql_db_tools", "__end__": END},
+    lambda state: state.get("route", END),
+    {
+        "nosql_db_tools": "nosql_db_tools",
+        "db_result_evaluator": "db_result_evaluator",
+    }
 )
+
+# After tools execute, go to evaluator
+builder.add_edge("sql_db_tools", "db_result_evaluator")
+builder.add_edge("nosql_db_tools", "db_result_evaluator")
+
+# Evaluator decides: retry (go back to expert), fallback to RAG, or END
+builder.add_conditional_edges(
+    "db_result_evaluator",
+    lambda state: state.get("route", END),
+    {
+        "expert_sql": "expert_sql",
+        "expert_nosql": "expert_nosql",
+        "expert_rag": "expert_rag",
+        "__end__": END,
+    }
+)
+
+# expert_rag calls RAG tools
 builder.add_conditional_edges(
     "expert_rag",
     tools_condition,
     {"tools": "rag_tools", "__end__": END},
 )
 
-builder.add_edge("sql_db_tools", "expert_sql")
-builder.add_edge("nosql_db_tools", "expert_nosql")
+# After RAG tools, go back to expert_rag for final response
 builder.add_edge("rag_tools", "expert_rag")
 
 builder.set_entry_point("data_router")
@@ -232,8 +444,8 @@ builder.set_entry_point("data_router")
 graph = builder.compile()
 
 
-# mermaid_code = graph.get_graph().draw_mermaid()
-# print(mermaid_code)
+mermaid_code = graph.get_graph().draw_mermaid()
+print(mermaid_code)
 
 
 # result = graph.invoke(
