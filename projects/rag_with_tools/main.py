@@ -4,12 +4,13 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from langgraph.graph import StateGraph, END
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
-from projects.rag_with_tools.tools.sql_tool import db_tool, set_sql_connector
-from projects.rag_with_tools.tools.sql_connector import (
+from tools.sql_tool import sql_db_tool, set_sql_connector
+from tools.mongo_tool import mongo_tool
+from tools.sql_connector import (
     SQLConnector,
     get_sql_connector_from_datasource,
 )
-from projects.rag_with_tools.tools.rag_tool import rag_tool
+from tools.rag_tool import rag_tool
 from typing_extensions import TypedDict, Annotated
 from langgraph.graph.message import add_messages
 from langchain_core.messages import AnyMessage
@@ -35,7 +36,8 @@ class RouteDecision(BaseModel):
     source: str = Field(description="Name of the selected data source")
 
 
-db_tools = [db_tool]
+sql_db_tools = [sql_db_tool]
+nosql_db_tools = [mongo_tool]
 rag_tools = [rag_tool]
 
 
@@ -151,14 +153,14 @@ def expert_sql(state: GraphState):
     - Use {db_type.upper()} syntax for your queries.
     """
     sys_msg = SystemMessage(content=instruction)
-    llm_with_tools = ChatOpenAI(model="gpt-4o-mini").bind_tools(db_tools)
+    llm_with_tools = ChatOpenAI(model="gpt-4o-mini").bind_tools(sql_db_tools)
     ai_msg = llm_with_tools.invoke([sys_msg] + state["messages"])
 
     response = {"messages": [ai_msg]}
     if "expert_rag" in ai_msg.content.lower():
         response["route"] = "expert_rag"
     elif ai_msg.tool_calls:
-        response["route"] = "database_tools"
+        response["route"] = "sql_db_tools"
     else:
         response["route"] = END
     return response
@@ -183,24 +185,37 @@ def expert_rag(state: GraphState):
     return {"messages": [llm_with_tools.invoke([sys_msg] + clean_history)]}
 
 
-def database_condition(state: GraphState):
-    route = state.get("route", END)
-    return route
-
-
 builder = StateGraph(GraphState)
 
+# NODES
+builder.add_node("data_router", data_router)
 builder.add_node("expert_sql", expert_sql)
 builder.add_node("expert_nosql", expert_nosql)
 builder.add_node("expert_rag", expert_rag)
 
-builder.add_node("database_tools", ToolNode(db_tools))
+# TOOLS
+builder.add_node("sql_db_tools", ToolNode(sql_db_tools))
+builder.add_node("nosql_db_tools", ToolNode(nosql_db_tools))
 builder.add_node("rag_tools", ToolNode(rag_tools))
 
 
 builder.add_conditional_edges(
+    "data_router",
+    lambda state: state.get("route", END),
+    {
+        "expert_sql": "expert_sql",
+        "expert_nosql": "expert_nosql",
+    }
+)
+builder.add_conditional_edges(
     "expert_sql",
-    database_condition,
+    tools_condition,
+    {"tools": "sql_db_tools", "__end__": END},
+)
+builder.add_conditional_edges(
+    "expert_nosql",
+    tools_condition,
+    {"tools": "nosql_db_tools", "__end__": END},
 )
 builder.add_conditional_edges(
     "expert_rag",
@@ -208,10 +223,11 @@ builder.add_conditional_edges(
     {"tools": "rag_tools", "__end__": END},
 )
 
-builder.add_edge("database_tools", "expert_sql")
+builder.add_edge("sql_db_tools", "expert_sql")
+builder.add_edge("nosql_db_tools", "expert_nosql")
 builder.add_edge("rag_tools", "expert_rag")
 
-builder.set_entry_point("expert_sql")
+builder.set_entry_point("data_router")
 
 graph = builder.compile()
 
@@ -220,12 +236,12 @@ graph = builder.compile()
 # print(mermaid_code)
 
 
-result = graph.invoke(
-    {"messages": [HumanMessage(content="How much we made with product A sales?")]}
-)
+# result = graph.invoke(
+#     {"messages": [HumanMessage(content="How much we made with product A sales?")]}
+# )
 
-print("\n=== Resultados finales ===")
-for msg in result["messages"]:
-    msg.pretty_print()
+# print("\n=== Resultados finales ===")
+# for msg in result["messages"]:
+#     msg.pretty_print()
 
 # https://chatgpt.com/c/68dedacb-2ea0-8326-9a4c-8fb83315c530

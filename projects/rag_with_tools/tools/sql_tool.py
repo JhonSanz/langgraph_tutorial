@@ -1,5 +1,5 @@
 from langchain_core.tools import tool
-from projects.rag_with_tools.tools.sql_connector import SQLConnector
+from tools.sql_connector import SQLConnector
 from typing import Optional
 
 # Global variable to hold the current connector instance
@@ -18,7 +18,7 @@ def get_sql_connector() -> Optional[SQLConnector]:
 
 
 @tool
-def db_tool(query: str) -> str:
+def sql_db_tool(query: str) -> str:
     """
     Queries SQL database (SQLite, PostgreSQL, or MySQL) given a SQL query as string.
 
