@@ -41,12 +41,27 @@ Example response:
 {{"route": "expert_sql", "source": "users_db"}}
 """
 
-    llm = ChatOpenAI(
-        model="gpt-4o-mini", model_kwargs={"response_format": {"type": "json_object"}}
-    )
-    structured_llm = llm.with_structured_output(RouteDecision)
-    result = structured_llm.invoke(
-        [SystemMessage(content=instruction), HumanMessage(content=query_text)]
-    )
+    try:
+        llm = ChatOpenAI(
+            model="gpt-4o-mini", model_kwargs={"response_format": {"type": "json_object"}}
+        )
+        structured_llm = llm.with_structured_output(RouteDecision)
+        result = structured_llm.invoke(
+            [SystemMessage(content=instruction), HumanMessage(content=query_text)]
+        )
 
-    return {"route": result.route, "selected_source": result.source}
+        # Validar que la ruta sea válida
+        if result.route not in ["expert_sql", "expert_nosql"]:
+            raise ValueError(
+                f"Router LLM returned invalid route: '{result.route}'. "
+                f"Expected 'expert_sql' or 'expert_nosql'. Source: {result.source}"
+            )
+
+        return {"route": result.route, "selected_source": result.source}
+
+    except Exception as e:
+        # Re-lanzar con contexto adicional para debugging
+        raise RuntimeError(
+            f"Router failed to process query: '{query_text[:100]}...'. "
+            f"Error: {str(e)}"
+        ) from e
