@@ -1,12 +1,34 @@
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage
 from graph.state import GraphState
-from config import MAX_RETRIES, get_source_config, create_error_response
+from config import MAX_RETRIES, get_source_config
 from tools.mongo_tool import mongo_tool
 
 
 def expert_nosql(state: GraphState):
-    """NoSQL expert that can retry queries up to MAX_RETRIES times."""
+    """
+    NoSQL (MongoDB) database expert node that generates and executes MongoDB queries.
+
+    This node analyzes the user's query and generates appropriate MongoDB commands
+    for the selected database. It uses the LLM to create syntactically correct
+    queries based on the collection schemas and database metadata.
+
+    Args:
+        state (GraphState): Current graph state containing:
+            - messages: Conversation history
+            - selected_source: Name of the MongoDB data source to query
+            - retry_count: Number of retry attempts made
+
+    Returns:
+        dict: Updated state with:
+            - messages: List containing the AI message with tool calls
+            - retry_count: Incremented retry counter
+            - route: Next node to execute ("nosql_db_tools" or "db_result_evaluator")
+
+    Raises:
+        Returns error response if:
+            - Source configuration not found in datasources.yaml
+    """
     # Get the selected data source from state
     selected_source = state.get("selected_source", "")
     retry_count = state.get("retry_count", 0)
@@ -14,9 +36,14 @@ def expert_nosql(state: GraphState):
     # Find the source config
     source_config = get_source_config(selected_source, "mongodb")
     if not source_config:
-        return create_error_response(
-            f"No se encontró la fuente de datos NoSQL '{selected_source}' en datasources.yaml"
-        )
+        return {
+            "messages": [
+                SystemMessage(
+                    content=f"❌ Error: No se encontró la fuente de datos NoSQL '{selected_source}' en datasources.yaml"
+                )
+            ],
+            "route": "db_result_evaluator",
+        }
 
     # Get MongoDB metadata
     database = source_config.get("database", "")
