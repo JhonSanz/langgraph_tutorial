@@ -1,7 +1,7 @@
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage
 from graph.state import GraphState
-from config import DATA_SOURCES, MAX_RETRIES
+from config import MAX_RETRIES, get_source_config, create_error_response
 from tools.mongo_tool import mongo_tool
 
 
@@ -11,32 +11,12 @@ def expert_nosql(state: GraphState):
     selected_source = state.get("selected_source", "")
     retry_count = state.get("retry_count", 0)
 
-    if not selected_source:
-        return {
-            "messages": [
-                SystemMessage(
-                    content="❌ Error: No se especificó una fuente de datos en el state"
-                )
-            ],
-            "route": "db_result_evaluator",
-        }
-
     # Find the source config
-    source_config = None
-    for source in DATA_SOURCES.get("mongodb", []):
-        if source["name"] == selected_source:
-            source_config = source
-            break
-
+    source_config = get_source_config(selected_source, "mongodb")
     if not source_config:
-        return {
-            "messages": [
-                SystemMessage(
-                    content=f"❌ Error: No se encontró la fuente de datos NoSQL '{selected_source}' en datasources.yaml"
-                )
-            ],
-            "route": "db_result_evaluator",
-        }
+        return create_error_response(
+            f"No se encontró la fuente de datos NoSQL '{selected_source}' en datasources.yaml"
+        )
 
     # Get MongoDB metadata
     database = source_config.get("database", "")

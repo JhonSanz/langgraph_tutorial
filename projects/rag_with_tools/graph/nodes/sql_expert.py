@@ -1,7 +1,7 @@
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage
 from graph.state import GraphState
-from config import DATA_SOURCES, MAX_RETRIES
+from config import DATA_SOURCES, MAX_RETRIES, get_source_config, create_error_response
 from tools.sql_tool import sql_db_tool, set_sql_connector
 from tools.sql_connector import get_sql_connector_from_datasource
 
@@ -12,45 +12,17 @@ def expert_sql(state: GraphState):
     selected_source = state.get("selected_source", "")
     retry_count = state.get("retry_count", 0)
 
-    if not selected_source:
-        return {
-            "messages": [
-                SystemMessage(
-                    content="❌ Error: No se especificó una fuente de datos en el state"
-                )
-            ],
-            "route": "db_result_evaluator",
-        }
-
-    # Find the source config first
-    source_config = None
-    for source in DATA_SOURCES.get("sql", []):
-        if source["name"] == selected_source:
-            source_config = source
-            break
-
+    # Find the source config
+    source_config = get_source_config(selected_source, "sql")
     if not source_config:
-        return {
-            "messages": [
-                SystemMessage(
-                    content=f"❌ Error: No se encontró la fuente de datos SQL '{selected_source}' en datasources.yaml"
-                )
-            ],
-            "route": "db_result_evaluator",
-        }
+        return create_error_response(
+            f"No se encontró la fuente de datos SQL '{selected_source}' en datasources.yaml"
+        )
 
     # Create connector using the helper function
     connector = get_sql_connector_from_datasource(selected_source, DATA_SOURCES)
-
     if connector is None:
-        return {
-            "messages": [
-                SystemMessage(
-                    content=f"❌ Error: No se pudo crear el conector para '{selected_source}'"
-                )
-            ],
-            "route": "db_result_evaluator",
-        }
+        return create_error_response(f"No se pudo crear el conector para '{selected_source}'")
 
     # Set the connector globally for the db_tool
     set_sql_connector(connector)

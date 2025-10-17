@@ -50,13 +50,6 @@ Example response:
             [SystemMessage(content=instruction), HumanMessage(content=query_text)]
         )
 
-        # Validar que la ruta sea válida
-        if result.route not in ["expert_sql", "expert_nosql"]:
-            raise ValueError(
-                f"Router LLM returned invalid route: '{result.route}'. "
-                f"Expected 'expert_sql' or 'expert_nosql'. Source: {result.source}"
-            )
-
         return {"route": result.route, "selected_source": result.source}
 
     except Exception as e:

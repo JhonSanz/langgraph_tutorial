@@ -1,4 +1,4 @@
-from typing_extensions import TypedDict, Annotated
+from typing_extensions import TypedDict, Annotated, Literal
 from langgraph.graph.message import add_messages
 from langchain_core.messages import AnyMessage
 from pydantic import BaseModel, Field
@@ -12,5 +12,7 @@ class GraphState(TypedDict):
 
 
 class RouteDecision(BaseModel):
-    route: str = Field(description="Must be either 'expert_sql' or 'expert_nosql'")
+    route: Literal["expert_sql", "expert_nosql"] = Field(
+        description="Must be either 'expert_sql' or 'expert_nosql'"
+    )
     source: str = Field(description="Name of the selected data source")
