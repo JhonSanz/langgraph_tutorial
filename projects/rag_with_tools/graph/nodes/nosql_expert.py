@@ -1,7 +1,7 @@
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage
 from graph.state import GraphState
-from config import MAX_RETRIES, get_source_config
+from config import get_source_config, get_retry_context, Routes, DEFAULT_LLM_MODEL
 from tools.mongo_tool import mongo_tool
 
 
@@ -42,7 +42,7 @@ def expert_nosql(state: GraphState):
                     content=f"❌ Error: No se encontró la fuente de datos NoSQL '{selected_source}' en datasources.yaml"
                 )
             ],
-            "route": "db_result_evaluator",
+            "route": Routes.EVALUATOR,
         }
 
     # Get MongoDB metadata
@@ -51,9 +51,7 @@ def expert_nosql(state: GraphState):
     schema_info = source_config.get("schema", "No schema provided")
 
     # Add context about retries if this is a retry
-    retry_context = ""
-    if retry_count > 0:
-        retry_context = f"\n\nNOTE: This is retry attempt {retry_count}/{MAX_RETRIES}. The previous query may have failed or returned no results. Try a different approach or query."
+    retry_context = get_retry_context(retry_count)
 
     instruction = f"""
     You are an expert tasked to query a MongoDB database.
@@ -69,19 +67,16 @@ def expert_nosql(state: GraphState):
     - Be precise and avoid syntax errors.{retry_context}
     """
     sys_msg = SystemMessage(content=instruction)
-    llm_with_tools = ChatOpenAI(model="gpt-4o-mini").bind_tools([mongo_tool])
+    llm_with_tools = ChatOpenAI(model=DEFAULT_LLM_MODEL).bind_tools([mongo_tool])
     ai_msg = llm_with_tools.invoke([sys_msg] + state["messages"])
 
-    # Increment retry count
-    new_retry_count = retry_count + 1
-
-    response = {"messages": [ai_msg], "retry_count": new_retry_count}
+    response = {"messages": [ai_msg], "retry_count": retry_count + 1}
 
     if ai_msg.tool_calls:
         # Has tool calls, execute them
-        response["route"] = "nosql_db_tools"
+        response["route"] = Routes.NOSQL_TOOLS
     else:
         # No tool calls, go to evaluator
-        response["route"] = "db_result_evaluator"
+        response["route"] = Routes.EVALUATOR
 
     return response

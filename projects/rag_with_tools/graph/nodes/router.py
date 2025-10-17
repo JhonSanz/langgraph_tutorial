@@ -1,11 +1,31 @@
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, SystemMessage
 from graph.state import GraphState, RouteDecision
-from config import DATA_SOURCES
+from config import DATA_SOURCES, DEFAULT_LLM_MODEL
 
 
 def data_router(state: GraphState):
-    """Routes user queries to the appropriate data source (SQL or NoSQL)."""
+    """
+    Routes user queries to the appropriate data source based on content analysis.
+
+    Analyzes the user's query using an LLM to determine which database
+    (SQL or MongoDB) is most appropriate for answering the question. The LLM
+    evaluates the query against all available data sources and selects the
+    best match based on descriptions and database capabilities.
+
+    Args:
+        state (GraphState): Current graph state containing:
+            - messages: Conversation history with user query
+
+    Returns:
+        dict: Updated state with:
+            - route: Expert to use ("expert_sql" or "expert_nosql")
+            - selected_source: Name of the selected data source
+
+    Raises:
+        ValueError: If data sources catalog or user query is empty
+        RuntimeError: If LLM fails to process the query or returns invalid route
+    """
     user_query = next(
         (m for m in state["messages"] if isinstance(m, HumanMessage)), None
     )
@@ -43,7 +63,7 @@ Example response:
 
     try:
         llm = ChatOpenAI(
-            model="gpt-4o-mini", model_kwargs={"response_format": {"type": "json_object"}}
+            model=DEFAULT_LLM_MODEL, model_kwargs={"response_format": {"type": "json_object"}}
         )
         structured_llm = llm.with_structured_output(RouteDecision)
         result = structured_llm.invoke(

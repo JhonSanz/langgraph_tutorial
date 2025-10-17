@@ -1,7 +1,7 @@
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage
 from graph.state import GraphState
-from config import DATA_SOURCES, MAX_RETRIES, get_source_config
+from config import DATA_SOURCES, get_source_config, get_retry_context, Routes, DEFAULT_LLM_MODEL
 from tools.sql_tool import sql_db_tool, set_sql_connector
 from tools.sql_connector import get_sql_connector_from_datasource
 
@@ -44,7 +44,7 @@ def expert_sql(state: GraphState):
                     content=f"❌ Error: No se encontró la fuente de datos SQL '{selected_source}' en datasources.yaml"
                 )
             ],
-            "route": "db_result_evaluator",
+            "route": Routes.EVALUATOR,
         }
 
     # Create connector using the helper function
@@ -54,7 +54,7 @@ def expert_sql(state: GraphState):
             "messages": [
                 SystemMessage(content=f"❌ Error: No se pudo crear el conector para '{selected_source}'")
             ],
-            "route": "db_result_evaluator",
+            "route": Routes.EVALUATOR,
         }
 
     # Set the connector globally for the db_tool
@@ -65,9 +65,7 @@ def expert_sql(state: GraphState):
     db_schema: str = source_config.get("schema", connector.get_schema())
 
     # Add context about retries if this is a retry
-    retry_context = ""
-    if retry_count > 0:
-        retry_context = f"\n\nNOTE: This is retry attempt {retry_count}/{MAX_RETRIES}. The previous query may have failed or returned no results. Try a different approach or query."
+    retry_context = get_retry_context(retry_count)
 
     instruction = f"""
     You are an expert tasked to query a {db_type.upper()} database given the following schema. You HAVE TO generate the query, based on this:
@@ -80,19 +78,16 @@ def expert_sql(state: GraphState):
     - Be precise and avoid syntax errors.{retry_context}
     """
     sys_msg = SystemMessage(content=instruction)
-    llm_with_tools = ChatOpenAI(model="gpt-4o-mini").bind_tools([sql_db_tool])
+    llm_with_tools = ChatOpenAI(model=DEFAULT_LLM_MODEL).bind_tools([sql_db_tool])
     ai_msg = llm_with_tools.invoke([sys_msg] + state["messages"])
 
-    # Increment retry count
-    new_retry_count = retry_count + 1
-
-    response = {"messages": [ai_msg], "retry_count": new_retry_count}
+    response = {"messages": [ai_msg], "retry_count": retry_count + 1}
 
     if ai_msg.tool_calls:
         # Has tool calls, execute them
-        response["route"] = "sql_db_tools"
+        response["route"] = Routes.SQL_TOOLS
     else:
         # No tool calls, go to evaluator
-        response["route"] = "db_result_evaluator"
+        response["route"] = Routes.EVALUATOR
 
     return response
