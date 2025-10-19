@@ -12,6 +12,35 @@ from graph.nodes import (
 from tools.sql_tool import sql_db_tool
 from tools.mongo_tool import mongo_tool
 from tools.rag_tool import rag_tool
+from config import Routes
+
+
+def route_data_router(state: GraphState) -> str:
+    """Route from data_router to the appropriate expert."""
+    return state.get("route", END)
+
+
+def route_expert_sql(state: GraphState) -> str:
+    """Route from expert_sql based on whether tool calls were made."""
+    last_msg = state["messages"][-1]
+    if hasattr(last_msg, 'tool_calls') and last_msg.tool_calls:
+        return Routes.SQL_TOOLS
+    else:
+        return Routes.EVALUATOR
+
+
+def route_expert_nosql(state: GraphState) -> str:
+    """Route from expert_nosql based on whether tool calls were made."""
+    last_msg = state["messages"][-1]
+    if hasattr(last_msg, 'tool_calls') and last_msg.tool_calls:
+        return Routes.NOSQL_TOOLS
+    else:
+        return Routes.EVALUATOR
+
+
+def route_evaluator(state: GraphState) -> str:
+    """Route from evaluator to retry, RAG, response, or end."""
+    return state.get("route", END)
 
 
 def build_graph():
@@ -41,30 +70,30 @@ def build_graph():
     # Entry point: data_router decides which expert to use
     builder.add_conditional_edges(
         "data_router",
-        lambda state: state.get("route", END),
+        route_data_router,
         {
-            "expert_sql": "expert_sql",
-            "expert_nosql": "expert_nosql",
+            Routes.EXPERT_SQL: "expert_sql",
+            Routes.EXPERT_NOSQL: "expert_nosql",
         }
     )
 
     # expert_sql can either call tools or go to evaluator
     builder.add_conditional_edges(
         "expert_sql",
-        lambda state: state.get("route", END),
+        route_expert_sql,
         {
-            "sql_db_tools": "sql_db_tools",
-            "db_result_evaluator": "db_result_evaluator",
+            Routes.SQL_TOOLS: "sql_db_tools",
+            Routes.EVALUATOR: "db_result_evaluator",
         }
     )
 
     # expert_nosql can either call tools or go to evaluator
     builder.add_conditional_edges(
         "expert_nosql",
-        lambda state: state.get("route", END),
+        route_expert_nosql,
         {
-            "nosql_db_tools": "nosql_db_tools",
-            "db_result_evaluator": "db_result_evaluator",
+            Routes.NOSQL_TOOLS: "nosql_db_tools",
+            Routes.EVALUATOR: "db_result_evaluator",
         }
     )
 
@@ -75,12 +104,12 @@ def build_graph():
     # Evaluator decides: retry (go back to expert), fallback to RAG, or go to response generator
     builder.add_conditional_edges(
         "db_result_evaluator",
-        lambda state: state.get("route", END),
+        route_evaluator,
         {
-            "expert_sql": "expert_sql",
-            "expert_nosql": "expert_nosql",
-            "expert_rag": "expert_rag",
-            "response_generator": "response_generator",
+            Routes.EXPERT_SQL: "expert_sql",
+            Routes.EXPERT_NOSQL: "expert_nosql",
+            Routes.EXPERT_RAG: "expert_rag",
+            Routes.RESPONSE: "response_generator",
             "__end__": END,
         }
     )

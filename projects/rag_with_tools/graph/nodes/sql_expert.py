@@ -81,13 +81,4 @@ def expert_sql(state: GraphState):
     llm_with_tools = ChatOpenAI(model=DEFAULT_LLM_MODEL).bind_tools([sql_db_tool])
     ai_msg = llm_with_tools.invoke([sys_msg] + state["messages"])
 
-    response = {"messages": [ai_msg], "retry_count": retry_count + 1}
-
-    if ai_msg.tool_calls:
-        # Has tool calls, execute them
-        response["route"] = Routes.SQL_TOOLS
-    else:
-        # No tool calls, go to evaluator
-        response["route"] = Routes.EVALUATOR
-
-    return response
+    return {"messages": [ai_msg], "retry_count": retry_count + 1}

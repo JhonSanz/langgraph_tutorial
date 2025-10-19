@@ -1,7 +1,7 @@
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, SystemMessage
 from graph.state import GraphState, RouteDecision
-from config import DATA_SOURCES, DEFAULT_LLM_MODEL
+from config import DATA_SOURCES, DEFAULT_LLM_MODEL, Routes
 
 
 def data_router(state: GraphState):
@@ -50,15 +50,15 @@ Available sources:
 {catalog_str}
 
 ROUTING RULES:
-- If the best source uses SQL database → return route: "expert_sql"
-- If the best source uses MongoDB/NoSQL database → return route: "expert_nosql"
+- If the best source uses SQL database → return route: "{Routes.EXPERT_SQL}"
+- If the best source uses MongoDB/NoSQL database → return route: "{Routes.EXPERT_NOSQL}"
 
 You MUST respond with valid JSON containing:
-- "route": the expert type (expert_sql or expert_nosql)
+- "route": the expert type ({Routes.EXPERT_SQL} or {Routes.EXPERT_NOSQL})
 - "source": the exact name of the data source
 
 Example response:
-{{"route": "expert_sql", "source": "users_db"}}
+{{"route": "{Routes.EXPERT_SQL}", "source": "users_db"}}
 """
 
     try:
