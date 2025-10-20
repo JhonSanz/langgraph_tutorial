@@ -1,5 +1,6 @@
 from langgraph.prebuilt import tools_condition, ToolNode
 from langgraph.graph import StateGraph, END
+from langchain_core.messages import SystemMessage
 from graph.state import GraphState
 from graph.nodes import (
     data_router,
@@ -21,8 +22,14 @@ def route_data_router(state: GraphState) -> str:
 
 
 def route_expert_sql(state: GraphState) -> str:
-    """Route from expert_sql based on whether tool calls were made."""
+    """Route from expert_sql based on whether tool calls were made or errors occurred."""
     last_msg = state["messages"][-1]
+
+    # Check if last message is an error from the expert
+    if isinstance(last_msg, SystemMessage) and "Error" in last_msg.content:
+        return Routes.EVALUATOR
+
+    # Check for tool calls
     if hasattr(last_msg, 'tool_calls') and last_msg.tool_calls:
         return Routes.SQL_TOOLS
     else:
@@ -30,8 +37,14 @@ def route_expert_sql(state: GraphState) -> str:
 
 
 def route_expert_nosql(state: GraphState) -> str:
-    """Route from expert_nosql based on whether tool calls were made."""
+    """Route from expert_nosql based on whether tool calls were made or errors occurred."""
     last_msg = state["messages"][-1]
+
+    # Check if last message is an error from the expert
+    if isinstance(last_msg, SystemMessage) and "Error" in last_msg.content:
+        return Routes.EVALUATOR
+
+    # Check for tool calls
     if hasattr(last_msg, 'tool_calls') and last_msg.tool_calls:
         return Routes.NOSQL_TOOLS
     else:

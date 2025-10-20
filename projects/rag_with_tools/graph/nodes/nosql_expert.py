@@ -1,7 +1,7 @@
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage
 from graph.state import GraphState
-from config import get_source_config, get_retry_context, Routes, DEFAULT_LLM_MODEL
+from config import get_source_config, get_retry_context, DEFAULT_LLM_MODEL
 from tools.mongo_tool import mongo_tool
 
 
@@ -42,7 +42,6 @@ def expert_nosql(state: GraphState):
                     content=f"❌ Error: No se encontró la fuente de datos NoSQL '{selected_source}' en datasources.yaml"
                 )
             ],
-            "route": Routes.EVALUATOR,
         }
 
     # Get MongoDB metadata

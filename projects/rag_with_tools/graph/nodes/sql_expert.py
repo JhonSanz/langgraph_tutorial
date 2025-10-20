@@ -1,7 +1,7 @@
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage
 from graph.state import GraphState
-from config import DATA_SOURCES, get_source_config, get_retry_context, Routes, DEFAULT_LLM_MODEL
+from config import DATA_SOURCES, get_source_config, get_retry_context, DEFAULT_LLM_MODEL
 from tools.sql_tool import sql_db_tool, set_sql_connector
 from tools.sql_connector import get_sql_connector_from_datasource
 
@@ -41,10 +41,9 @@ def expert_sql(state: GraphState):
         return {
             "messages": [
                 SystemMessage(
-                    content=f"❌ Error: No se encontró la fuente de datos SQL '{selected_source}' en datasources.yaml"
+                    content=f"Error: No se encontró la fuente de datos SQL '{selected_source}' en datasources.yaml"
                 )
             ],
-            "route": Routes.EVALUATOR,
         }
 
     # Create connector using the helper function
@@ -52,9 +51,8 @@ def expert_sql(state: GraphState):
     if connector is None:
         return {
             "messages": [
-                SystemMessage(content=f"❌ Error: No se pudo crear el conector para '{selected_source}'")
+                SystemMessage(content=f"Error: No se pudo crear el conector para '{selected_source}'")
             ],
-            "route": Routes.EVALUATOR,
         }
 
     # Set the connector globally for the db_tool
