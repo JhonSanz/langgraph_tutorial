@@ -75,7 +75,12 @@ If the results are empty, irrelevant, or don't help answer the question, say "un
     eval_result = llm.invoke([HumanMessage(content=eval_prompt)])
 
     if "unsatisfactory" in eval_result.content.lower():
-        return {"evaluation_result": EvaluationResults.UNSATISFACTORY}
+        # Increment retry_count since results are unsatisfactory and may need retry
+        retry_count = state.get("retry_count", 0)
+        return {
+            "evaluation_result": EvaluationResults.UNSATISFACTORY,
+            "retry_count": retry_count + 1
+        }
 
     # Results are satisfactory
     return {"evaluation_result": EvaluationResults.SATISFACTORY}

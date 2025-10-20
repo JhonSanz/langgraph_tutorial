@@ -42,6 +42,7 @@ def expert_nosql(state: GraphState):
                     content=f"❌ Error: No se encontró la fuente de datos NoSQL '{selected_source}' en datasources.yaml"
                 )
             ],
+            "retry_count": retry_count + 1,  # Increment to prevent infinite loops
         }
 
     # Get MongoDB metadata
@@ -69,4 +70,4 @@ def expert_nosql(state: GraphState):
     llm_with_tools = ChatOpenAI(model=DEFAULT_LLM_MODEL).bind_tools([mongo_tool])
     ai_msg = llm_with_tools.invoke([sys_msg] + state["messages"])
 
-    return {"messages": [ai_msg], "retry_count": retry_count + 1}
+    return {"messages": [ai_msg]}

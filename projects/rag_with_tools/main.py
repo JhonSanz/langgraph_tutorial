@@ -9,8 +9,16 @@ mermaid_code = graph.get_graph().draw_mermaid()
 print(mermaid_code)
 
 
+# result = graph.invoke(
+#     {"messages": [HumanMessage(content="How much we made with Product A sales?")]}
+# )
+# print("\n=== Resultados finales ===")
+# for msg in result["messages"]:
+#     msg.pretty_print()
+
+
 result = graph.invoke(
-    {"messages": [HumanMessage(content="How much we made with Product A sales?")]}
+    {"messages": [HumanMessage(content="Cuál es el horario de atención al cliente?")]}
 )
 
 print("\n=== Resultados finales ===")

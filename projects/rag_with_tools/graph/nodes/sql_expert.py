@@ -44,6 +44,7 @@ def expert_sql(state: GraphState):
                     content=f"Error: No se encontró la fuente de datos SQL '{selected_source}' en datasources.yaml"
                 )
             ],
+            "retry_count": retry_count + 1,  # Increment to prevent infinite loops
         }
 
     # Create connector using the helper function
@@ -53,6 +54,7 @@ def expert_sql(state: GraphState):
             "messages": [
                 SystemMessage(content=f"Error: No se pudo crear el conector para '{selected_source}'")
             ],
+            "retry_count": retry_count + 1,  # Increment to prevent infinite loops
         }
 
     # Set the connector globally for the db_tool
@@ -79,4 +81,4 @@ def expert_sql(state: GraphState):
     llm_with_tools = ChatOpenAI(model=DEFAULT_LLM_MODEL).bind_tools([sql_db_tool])
     ai_msg = llm_with_tools.invoke([sys_msg] + state["messages"])
 
-    return {"messages": [ai_msg], "retry_count": retry_count + 1}
+    return {"messages": [ai_msg]}

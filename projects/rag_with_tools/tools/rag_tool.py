@@ -12,7 +12,7 @@ def get_vectorstore():
     global _vectorstore
     if _vectorstore is None:
         # Define persistent directory
-        persist_directory = Path(__file__).parent.parent / "chroma_db"
+        persist_directory = Path(__file__).parent.parent / "populate/chroma_db"
         persist_directory.mkdir(exist_ok=True)
 
         # Initialize embeddings

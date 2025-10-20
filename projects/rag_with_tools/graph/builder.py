@@ -65,6 +65,9 @@ def route_evaluator(state: GraphState) -> str:
 
     Returns:
         Route constant for next node
+
+    Side effects:
+        - Increments retry_count in state when deciding to retry
     """
     evaluation = state.get("evaluation_result", "")
     retry_count = state.get("retry_count", 0)
@@ -76,6 +79,7 @@ def route_evaluator(state: GraphState) -> str:
     # Results are unsatisfactory or have errors
     if evaluation in [EvaluationResults.ERROR, EvaluationResults.UNSATISFACTORY]:
         # Check if we can retry
+        # Note: retry_count is incremented by expert nodes when they encounter issues
         if retry_count < MAX_RETRIES:
             # Determine which expert to retry based on selected_source
             selected_source = state.get("selected_source", "")
