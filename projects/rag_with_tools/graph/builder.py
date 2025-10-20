@@ -1,4 +1,4 @@
-from langgraph.prebuilt import tools_condition, ToolNode
+from langgraph.prebuilt import ToolNode
 from langgraph.graph import StateGraph, END
 from langchain_core.messages import SystemMessage
 from graph.state import GraphState
@@ -56,7 +56,7 @@ def route_evaluator(state: GraphState) -> str:
     Route from evaluator based on evaluation results and retry count.
 
     Decision logic:
-        - NO_RESULTS → END
+        - NO_RESULTS → RAG (no tool was called, try knowledge base)
         - ERROR or UNSATISFACTORY → Retry (if attempts left) or RAG
         - SATISFACTORY → Generate response
 
@@ -69,9 +69,9 @@ def route_evaluator(state: GraphState) -> str:
     evaluation = state.get("evaluation_result", "")
     retry_count = state.get("retry_count", 0)
 
-    # No results found, end gracefully
+    # No results found (no tool called), fallback to RAG
     if evaluation == EvaluationResults.NO_RESULTS:
-        return "__end__"
+        return Routes.EXPERT_RAG
 
     # Results are unsatisfactory or have errors
     if evaluation in [EvaluationResults.ERROR, EvaluationResults.UNSATISFACTORY]:
@@ -157,16 +157,11 @@ def build_graph():
             Routes.EXPERT_NOSQL: "expert_nosql",
             Routes.EXPERT_RAG: "expert_rag",
             Routes.RESPONSE: "response_generator",
-            "__end__": END,
         }
     )
 
-    # expert_rag calls RAG tools
-    builder.add_conditional_edges(
-        "expert_rag",
-        tools_condition,
-        {"tools": "rag_tools", "__end__": END},
-    )
+    # expert_rag always calls RAG tools (no END option - user must receive response)
+    builder.add_edge("expert_rag", "rag_tools")
 
     # After RAG tools, go to response generator to synthesize final answer
     builder.add_edge("rag_tools", "response_generator")
