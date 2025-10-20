@@ -24,9 +24,3 @@ mongo:
     collections:
       - users: { fields: ["id", "name", "email", "signup_date"] }
 
-rag:
-  - name: knowledge_base
-    type: chromadb
-    description: "Vector database con documentos de conocimiento general. Usado como fallback cuando las bases de datos estructuradas no tienen la información."
-    persist_directory: ./chroma_db
-    embedding_model: text-embedding-3-small
