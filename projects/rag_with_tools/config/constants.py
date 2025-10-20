@@ -18,3 +18,12 @@ class Routes:
     EVALUATOR = "db_result_evaluator"
     RESPONSE = "response_generator"
     ROUTER = "data_router"
+
+
+class EvaluationResults:
+    """Evaluation result constants for db_result_evaluator node."""
+
+    NO_RESULTS = "no_results"
+    ERROR = "error"
+    UNSATISFACTORY = "unsatisfactory"
+    SATISFACTORY = "satisfactory"

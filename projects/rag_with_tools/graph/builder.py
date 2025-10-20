@@ -12,7 +12,7 @@ from graph.nodes import (
 from tools.sql_tool import sql_db_tool
 from tools.mongo_tool import mongo_tool
 from tools.rag_tool import rag_tool
-from config import Routes
+from config import Routes, MAX_RETRIES, DATA_SOURCES, EvaluationResults
 
 
 def route_data_router(state: GraphState) -> str:
@@ -39,8 +39,42 @@ def route_expert_nosql(state: GraphState) -> str:
 
 
 def route_evaluator(state: GraphState) -> str:
-    """Route from evaluator to retry, RAG, response, or end."""
-    return state.get("route", END)
+    """
+    Route from evaluator based on evaluation results and retry count.
+
+    Decision logic:
+        - NO_RESULTS → END
+        - ERROR or UNSATISFACTORY → Retry (if attempts left) or RAG
+        - SATISFACTORY → Generate response
+
+    Args:
+        state: Current graph state with evaluation_result and retry_count
+
+    Returns:
+        Route constant for next node
+    """
+    evaluation = state.get("evaluation_result", "")
+    retry_count = state.get("retry_count", 0)
+
+    # No results found, end gracefully
+    if evaluation == EvaluationResults.NO_RESULTS:
+        return "__end__"
+
+    # Results are unsatisfactory or have errors
+    if evaluation in [EvaluationResults.ERROR, EvaluationResults.UNSATISFACTORY]:
+        # Check if we can retry
+        if retry_count < MAX_RETRIES:
+            # Determine which expert to retry based on selected_source
+            selected_source = state.get("selected_source", "")
+            sql_sources = DATA_SOURCES.get("sql", [])
+            is_sql = any(source["name"] == selected_source for source in sql_sources)
+            return Routes.EXPERT_SQL if is_sql else Routes.EXPERT_NOSQL
+        else:
+            # Max retries reached, fallback to RAG
+            return Routes.EXPERT_RAG
+
+    # Results are satisfactory, generate response
+    return Routes.RESPONSE
 
 
 def build_graph():

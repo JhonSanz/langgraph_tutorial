@@ -1,65 +1,35 @@
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, SystemMessage
-from langgraph.graph import END
 from graph.state import GraphState
-from config import MAX_RETRIES, Routes, DEFAULT_LLM_MODEL, get_user_query, is_result_empty, has_error, DATA_SOURCES
-
-
-def _determine_retry_route(state: GraphState, retry_count: int) -> dict:
-    """
-    Determine the retry route based on retry count and selected source.
-
-    Args:
-        state: Current graph state
-        retry_count: Number of retry attempts made
-
-    Returns:
-        Dictionary with route to next node (expert or RAG)
-    """
-    if retry_count < MAX_RETRIES:
-        # Determine which expert to retry based on selected_source
-        selected_source = state.get("selected_source", "")
-
-        # Check if source is in SQL databases
-        sql_sources = DATA_SOURCES.get("sql", [])
-        is_sql = any(source["name"] == selected_source for source in sql_sources)
-
-        if is_sql:
-            return {"route": Routes.EXPERT_SQL}
-        else:
-            return {"route": Routes.EXPERT_NOSQL}
-    else:
-        # Max retries reached, fallback to RAG
-        return {"route": Routes.EXPERT_RAG}
+from config import DEFAULT_LLM_MODEL, get_user_query, is_result_empty, has_error, EvaluationResults
 
 
 def db_result_evaluator(state: GraphState):
     """
-    Evaluates database query results and decides next action (retry, RAG fallback, or response).
+    Evaluates database query results to determine their quality.
 
     This node analyzes the results from database queries to determine if they adequately
-    answer the user's question. It can trigger retries for failed queries (up to MAX_RETRIES),
-    fallback to RAG for persistent failures, or proceed to generate the final response.
+    answer the user's question. It does NOT make routing decisions - it only evaluates
+    and labels the results. The graph's routing function makes decisions based on this evaluation.
 
     Args:
         state (GraphState): Current graph state containing:
             - messages: Conversation history including tool results
-            - retry_count: Number of retry attempts made
-            - route: Current route information to determine expert type
 
     Returns:
         dict: Updated state with:
-            - route: Next node ("expert_sql", "expert_nosql", "expert_rag",
-                    "response_generator", or END)
+            - evaluation_result: One of:
+                - "no_results": No tool message found
+                - "error": Tool message found but contains error
+                - "unsatisfactory": Results don't adequately answer the question (LLM evaluated)
+                - "satisfactory": Results adequately answer the question
 
-    Decision logic:
-        1. No tool results → Check for errors → RAG or END
-        2. Empty/error results → Retry (if attempts left) or RAG
-        3. LLM evaluation unsatisfactory → Retry or RAG
-        4. Results satisfactory → Generate response
+    Evaluation criteria:
+        1. Check if tool results exist
+        2. Check if results are empty or contain errors
+        3. Use LLM to evaluate if results answer the user's question
     """
     messages = state["messages"]
-    retry_count = state.get("retry_count", 0)
 
     # Find the last tool message (database result)
     last_tool_msg = None
@@ -73,16 +43,16 @@ def db_result_evaluator(state: GraphState):
         # Check if the last message is an error from expert_sql/nosql
         last_msg = messages[-1] if messages else None
         if last_msg and isinstance(last_msg, SystemMessage) and "Error" in last_msg.content:
-            # Database connection or config error, go to RAG as fallback
-            return {"route": Routes.EXPERT_RAG}
-        # No tool was called, go to end
-        return {"route": END}
+            # Database connection or config error
+            return {"evaluation_result": EvaluationResults.ERROR}
+        # No tool was called
+        return {"evaluation_result": EvaluationResults.NO_RESULTS}
 
     tool_content = str(last_tool_msg.content).strip()
 
-    # Check if results are clearly unsatisfactory
+    # Check if results are clearly unsatisfactory (empty or error)
     if is_result_empty(tool_content) or has_error(tool_content):
-        return _determine_retry_route(state, retry_count)
+        return {"evaluation_result": EvaluationResults.ERROR}
 
     # Results look good, use LLM to make final evaluation
     user_query = get_user_query(messages)
@@ -105,7 +75,7 @@ If the results are empty, irrelevant, or don't help answer the question, say "un
     eval_result = llm.invoke([HumanMessage(content=eval_prompt)])
 
     if "unsatisfactory" in eval_result.content.lower():
-        return _determine_retry_route(state, retry_count)
+        return {"evaluation_result": EvaluationResults.UNSATISFACTORY}
 
-    # Results are satisfactory, generate final response
-    return {"route": Routes.RESPONSE}
+    # Results are satisfactory
+    return {"evaluation_result": EvaluationResults.SATISFACTORY}

@@ -9,6 +9,7 @@ class GraphState(TypedDict):
     route: str
     selected_source: str  # Track which data source was selected
     retry_count: int  # Track retry attempts for database queries
+    evaluation_result: str  # Result of evaluator: "satisfactory", "unsatisfactory", "no_results", "error"
 
 
 class RouteDecision(BaseModel):
