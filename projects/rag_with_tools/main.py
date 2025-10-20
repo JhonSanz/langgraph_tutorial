@@ -9,12 +9,12 @@ mermaid_code = graph.get_graph().draw_mermaid()
 print(mermaid_code)
 
 
-# result = graph.invoke(
-#     {"messages": [HumanMessage(content="How much we made with product A sales?")]}
-# )
+result = graph.invoke(
+    {"messages": [HumanMessage(content="How much we made with Product A sales?")]}
+)
 
-# print("\n=== Resultados finales ===")
-# for msg in result["messages"]:
-#     msg.pretty_print()
+print("\n=== Resultados finales ===")
+for msg in result["messages"]:
+    msg.pretty_print()
 
 # https://chatgpt.com/c/68dedacb-2ea0-8326-9a4c-8fb83315c530
