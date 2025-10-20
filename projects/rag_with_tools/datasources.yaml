@@ -23,3 +23,9 @@ mongo:
     description: "Base MongoDB con información de usuarios registrados."
     collections:
       - users: { fields: ["id", "name", "email", "signup_date"] }
+
+rag:
+  collection_name: knowledge_base
+  persist_directory: ./chroma_db
+  embedding_model: text-embedding-3-small
+  description: "Vector database con documentos de conocimiento general. Usado como fallback cuando las bases de datos estructuradas no tienen la información."
