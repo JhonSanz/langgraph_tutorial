@@ -18,7 +18,7 @@ def mongo_tool(database: str, collection: str, query: str) -> str:
     try:
         parsed_query = json.loads(query)
     except json.JSONDecodeError as e:
-        return f"❌ Error al parsear la query JSON: {e}"
+        return f"❌ Error al parsear la query ({query}) a JSON: {e}"
 
     # Check for dangerous operations in query
     blocked_ops = {"$where", "$function", "$accumulator", "$expr"}
@@ -28,7 +28,7 @@ def mongo_tool(database: str, collection: str, query: str) -> str:
 
     try:
         # Connect to MongoDB (adjust connection string as needed)
-        client = MongoClient("mongodb://localhost:27017/")
+        client = MongoClient("mongodb://mongouser:mongopassword@localhost:27017/")
         db = client[database]
         coll = db[collection]
 

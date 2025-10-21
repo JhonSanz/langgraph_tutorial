@@ -17,10 +17,27 @@ sql:
     username: myuser
     password: mypassword
 
-mongo:
-  - name: users_mongo
+mongodb:
+  - name: system_logs
     type: mongodb
-    description: "Base MongoDB con información de usuarios registrados."
+    description: "Base MongoDB con logs del sistema. Incluye eventos, errores, y métricas de rendimiento."
+    host: localhost
+    port: 27017
+    database: system_logs_db
+    username: mongouser
+    password: mongopassword
     collections:
-      - users: { fields: ["id", "name", "email", "signup_date"] }
+      - logs
+    schema: |
+      Collection: logs
+      Fields:
+        - timestamp: datetime (fecha y hora del evento)
+        - level: string (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+        - service: string (nombre del servicio que generó el log)
+        - message: string (descripción del evento)
+        - user_id: int (ID del usuario relacionado, si aplica)
+        - request_id: string (ID de la petición HTTP)
+        - duration_ms: int (duración de la operación en milisegundos)
+        - status_code: int (código HTTP, si aplica)
+        - ip_address: string (dirección IP del cliente)
 

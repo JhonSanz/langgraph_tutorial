@@ -95,9 +95,9 @@ echo ""
 
 # Execute MongoDB population script
 echo "======================================"
-echo "3. Populating MongoDB (users_mongo)"
+echo "3. Populating MongoDB (system_logs)"
 echo "======================================"
-if python3 "${SCRIPT_DIR}/mongo_users.py"; then
+if python3 "${SCRIPT_DIR}/mongo_logs.py"; then
     echo "✓ MongoDB population completed"
 else
     echo "✗ MongoDB population failed"
