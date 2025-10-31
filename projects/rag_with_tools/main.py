@@ -9,15 +9,15 @@ mermaid_code = graph.get_graph().draw_mermaid()
 print(mermaid_code)
 
 
-result = graph.invoke(
-    {"messages": [HumanMessage(content="Encontrar los ultimos 10 errores criticos")]}
-)
-print("\n=== Resultados finales ===")
-for msg in result["messages"]:
-    msg.pretty_print()
+# result = graph.invoke(
+#     {"messages": [HumanMessage(content="Encontrar los ultimos 10 errores criticos")]}
+# )
+# print("\n=== Resultados finales ===")
+# for msg in result["messages"]:
+#     msg.pretty_print()
 
 # result = graph.invoke(
-#     {"messages": [HumanMessage(content="How much we made with Product A sales?")]}
+#     {"messages": [HumanMessage(content="Cuanto dinero gané vendiendo el "Product A"?")]}
 # )
 # print("\n=== Resultados finales ===")
 # for msg in result["messages"]:
