@@ -5,4 +5,3 @@ from langgraph.graph.message import add_messages
 
 class GraphState(TypedDict):
     messages: Annotated[list[AnyMessage], add_messages]
-    user_requirement: str

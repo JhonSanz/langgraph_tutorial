@@ -8,16 +8,14 @@ Este nodo:
 4. Prioriza las historias
 """
 
-import asyncio
 from pathlib import Path
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from langgraph.prebuilt import create_react_agent
+from langchain_core.messages import SystemMessage, HumanMessage
 from dotenv import load_dotenv
 from graph.state import GraphState
 
 load_dotenv()
-
-# from src.state import DevelopmentState, UserStory
 
 
 QUERY = """
@@ -67,49 +65,82 @@ COMIENZA AHORA. NO TERMINES HASTA COMPLETAR TODO.
 async def product_manager_node_async(state: GraphState):
     """
     Nodo del Product Manager - Crea user stories desde el requerimiento.
+
+    Retorna:
+        dict: Update al state con messages conteniendo:
+            - SystemMessage con resumen de éxito si todo va bien
+            - SystemMessage con error si algo falla
     """
 
     print("\n👔 Product Manager - Analizando requerimiento...")
-
-    user_requirement = "Crear una aplicación web para gestión de tareas con autenticación de usuarios, CRUD de tareas, y una interfaz intuitiva."
-    project_name = "test_project"
-    backend_tech_stack = "FastAPI, PostgreSQL, SQLAlchemy"
-    frontend_tech_stack = "React, TailwindCSS, Zustand"
-
-    output_dir = Path("output/user_stories")
-    output_dir.mkdir(parents=True, exist_ok=True)
-    output_dir_absolute = output_dir.resolve()
-
-    print(f"   📁 Directorio de salida: {output_dir_absolute}")
-
-    prompt = QUERY.format(
-        project_name=project_name,
-        user_requirement=user_requirement,
-        backend_tech_stack=backend_tech_stack,
-        frontend_tech_stack=frontend_tech_stack,
-        output_dir_absolute=output_dir_absolute,
+    user_query = next(
+        (m for m in state["messages"] if isinstance(m, HumanMessage)), None
     )
+    user_requirement = user_query.content if user_query else ""
 
-    client = MultiServerMCPClient(
-        {
-            "filesystem": {
-                "command": "npx",
-                "args": [
-                    "-y",
-                    "@modelcontextprotocol/server-filesystem",
-                    str(output_dir),
-                ],
-                "transport": "stdio",
+    try:
+        project_name = "test_project"
+        backend_tech_stack = "FastAPI, PostgreSQL, SQLAlchemy"
+        frontend_tech_stack = "React, TailwindCSS, Zustand"
+
+        output_dir = Path("output/user_stories")
+        output_dir.mkdir(parents=True, exist_ok=True)
+        output_dir_absolute = output_dir.resolve()
+
+        print(f"   📁 Directorio de salida: {output_dir_absolute}")
+
+        prompt = QUERY.format(
+            project_name=project_name,
+            user_requirement=user_requirement,
+            backend_tech_stack=backend_tech_stack,
+            frontend_tech_stack=frontend_tech_stack,
+            output_dir_absolute=output_dir_absolute,
+        )
+
+        client = MultiServerMCPClient(
+            {
+                "filesystem": {
+                    "command": "npx",
+                    "args": [
+                        "-y",
+                        "@modelcontextprotocol/server-filesystem",
+                        str(output_dir),
+                    ],
+                    "transport": "stdio",
+                }
             }
-        }
-    )
+        )
 
-    tools = await client.get_tools()
-    agent = create_react_agent("openai:gpt-4.1", tools)
+        tools = await client.get_tools()
+        agent = create_react_agent("openai:gpt-4.1", tools)
 
-    response = await agent.ainvoke({"messages": prompt})
-    print("👔 Product Manager - Proceso completado.")
-    print(response)
+        await agent.ainvoke({"messages": prompt})
 
+        print("👔 Product Manager - Proceso completado.")
 
-asyncio.run(product_manager_node_async())
+        created_files = list(output_dir.rglob("*.md"))
+        files_count = len(created_files)
+
+        summary = (
+            f"Product Manager - Proceso completado exitosamente:\n"
+            f"- Proyecto: {project_name}\n"
+            f"- Archivos generados: {files_count}\n"
+            f"- Directorio: {output_dir_absolute}\n"
+            f"- User stories, épicas y backlog creados"
+        )
+
+        print(f"\n✅ {summary}")
+
+        return {"messages": [SystemMessage(content=summary)]}
+
+    except Exception as e:
+        error_msg = (
+            f"Product Manager - Error en la generación de archivos:\n"
+            f"Tipo: {type(e).__name__}\n"
+            f"Detalle: {str(e)}\n"
+            f"El proceso no pudo completarse correctamente."
+        )
+
+        print(f"\n❌ {error_msg}")
+
+        return {"messages": [SystemMessage(content=error_msg)]}
