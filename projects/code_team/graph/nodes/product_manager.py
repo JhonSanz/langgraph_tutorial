@@ -1,5 +1,5 @@
 """
-Product Manager - Nodo que usa Claude Agent SDK para crear user stories.
+Product Manager - Nodo para crear user stories.
 
 Este nodo:
 1. Lee el requerimiento del usuario
@@ -9,19 +9,18 @@ Este nodo:
 """
 
 import asyncio
-import json
-import os
-import re
-import traceback
 from pathlib import Path
 from typing import List
+from langchain_mcp_adapters.client import MultiServerMCPClient
+from langgraph.prebuilt import create_react_agent
+import asyncio
+from dotenv import load_dotenv
 
-from claude_agent_sdk import ClaudeSDKClient, ClaudeAgentOptions, McpServerConfig
+load_dotenv()
 
 # from src.state import DevelopmentState, UserStory
 
-from typing import TypedDict, List, Dict, Optional, Literal
-from datetime import datetime
+from typing import TypedDict, List, Literal
 
 
 class UserStory(TypedDict):
@@ -86,29 +85,14 @@ Tech Stack Backend: {backend_tech_stack}
 Tech Stack Frontend: {frontend_tech_stack}
 """
 
-    # Configurar Claude Agent con MCP filesystem
-    options = ClaudeAgentOptions(
-        system_prompt=PRODUCT_MANAGER_PROMPT,
-        model=os.getenv("CLAUDE_MODEL", "claude-sonnet-4-5-20250929"),
-        mcp_servers={
+    client = MultiServerMCPClient(
+        {
             "filesystem": {
                 "command": "npx",
-                "args": ["@modelcontextprotocol/server-filesystem"],
-                "env": {"ALLOWED_PATHS": "/Users/me/projects"},
+                "args": ["-y", "@modelcontextprotocol/server-filesystem", str(output_dir)],
+                "transport": "stdio",
             }
-        },
-        allowed_tools=[
-            "Read",
-            "Write",
-            "Edit",
-            "MultiEdit",
-            "Grep",
-            "Glob",
-            "mcp__filesystem__list_files",
-            "mcp__filesystem__list_files",
-            "mcp__filesystem__read_file",
-            "mcp__filesystem__write_file",
-        ],
+        }
     )
     query = f"""{context}
 
@@ -160,143 +144,10 @@ en la misma ubicación ({output_dir_absolute}/backlog.md) con el resumen del pro
 incluyendo todas las historias numeradas y ordenadas por prioridad.
 """
 
-    try:
-        async with ClaudeSDKClient(options=options) as client:
-            print("   🤖 Iniciando agente Claude...")
-
-            # Verificar herramientas disponibles (opcional, para debugging)
-            # print(f"   🔧 Tools disponibles: {client.available_tools if hasattr(client, 'available_tools') else 'N/A'}")
-
-            print("   💭 Analizando y creando user stories...")
-
-            await client.query(query)
-
-            full_response = ""
-            files_created = []
-            tool_calls = 0
-
-            async for message in client.receive_response():
-                # Manejar diferentes tipos de mensajes
-                if hasattr(message, "text") and message.text:
-                    full_response += message.text
-                    # Mostrar progreso del agente (más conciso)
-                    if message.text.strip() and len(message.text) > 20:
-                        preview = message.text.strip()[:80].replace("\n", " ")
-                        print(f"   💭 {preview}...")
-
-                # Detectar cuando se usan tools
-                if hasattr(message, "tool_use"):
-                    tool_calls += 1
-                    tool_name = getattr(message.tool_use, "name", "unknown")
-                    print(f"   🔧 Usando herramienta: {tool_name}")
-
-                    if "write" in tool_name.lower() or "create" in tool_name.lower():
-                        print(f"   📝 Creando archivo...")
-
-                # Capturar resultados de tools
-                if hasattr(message, "content"):
-                    content_str = str(message.content)
-                    if ".md" in content_str:
-                        # Extraer nombres de archivos mencionados
-                        found_files = re.findall(
-                            r"user_story_\d+\.md|backlog\.md", content_str
-                        )
-                        files_created.extend(found_files)
-
-            print(f"\n   ✅ Proceso completado.")
-            print(f"   🔧 Total de llamadas a herramientas: {tool_calls}")
-
-            # Verificar archivos creados
-            created_files = list(output_dir.glob("*.md"))
-
-            if created_files:
-                print(f"\n   📁 Archivos creados en {output_dir}:")
-                for file in sorted(created_files):
-                    file_size = file.stat().st_size
-                    print(f"      ✓ {file.name} ({file_size} bytes)")
-            else:
-                print(f"\n   ⚠️  No se encontraron archivos .md en {output_dir}")
-                print(
-                    f"   💡 Verifica que el servidor MCP filesystem esté correctamente configurado"
-                )
-                print(f"   💡 Ruta permitida: {output_dir_absolute}")
-
-            # Mostrar resumen de la respuesta del agente
-            if full_response:
-                print("\n--- Resumen del Agente ---")
-                summary = (
-                    full_response[:500] + "..."
-                    if len(full_response) > 500
-                    else full_response
-                )
-                print(summary)
-                print("--- Fin del Resumen ---\n")
-
-            # Si se crearon archivos, mostrar el contenido del backlog
-            backlog_file = output_dir / "backlog.md"
-            if backlog_file.exists():
-                print("\n📋 Contenido del Product Backlog:")
-                print("-" * 60)
-                with open(backlog_file, "r", encoding="utf-8") as f:
-                    print(f.read())
-                print("-" * 60)
-
-    except Exception as e:
-        print(f"\n   ❌ Error al crear user stories: {e}")
-        print("\n   Traceback completo:")
-        traceback.print_exc()
-
-        # Sugerencias de debugging
-        print("\n   💡 Sugerencias:")
-        print("      - Verifica que npx esté instalado: npx --version")
-        print(
-            "      - Verifica el paquete MCP: npx @modelcontextprotocol/server-filesystem --help"
-        )
-        print(f"      - Verifica permisos en: {output_dir_absolute}")
-        print("      - Revisa la variable CLAUDE_API_KEY en tu entorno")
+    tools = await client.get_tools()
+    agent = create_react_agent("openai:gpt-4.1", tools)
+    math_response = await agent.ainvoke({"messages": query})
+    print(math_response)
 
 
-# from claude_agent_sdk import query
-# import asyncio
-
-
-# def basic_mcp():
-#     """
-#     Función básica para probar MCP filesystem.
-#     """
-
-#     async def run_test():
-#         async for message in query(
-#             prompt="List all Python files in my project",
-#             options=ClaudeAgentOptions(
-#                 mcp_servers={
-#                     "filesystem": {
-#                         "command": "npx",
-#                         "args": ["@modelcontextprotocol/server-filesystem"],
-#                         "env": {"ALLOWED_PATHS": "/Users/me/projects"},
-#                     }
-#                 },
-#                 allowed_tools=[
-#                     "Read",
-#                     "Write",
-#                     "Edit",
-#                     "MultiEdit",
-#                     "Grep",
-#                     "Glob",
-#                     "mcp__filesystem__list_files",
-#                 ],
-#             ),
-#         ):
-#             print(message)
-
-#     asyncio.run(run_test())
-
-
-if __name__ == "__main__":
-    print("=" * 60)
-    print("  Product Manager - Generador de User Stories")
-    print("=" * 60)
-    asyncio.run(product_manager_node_async())
-    print("\n" + "=" * 60)
-    print("  Proceso finalizado")
-    print("=" * 60)
+asyncio.run(product_manager_node_async())
