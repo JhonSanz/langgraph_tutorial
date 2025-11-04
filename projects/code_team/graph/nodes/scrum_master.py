@@ -18,134 +18,33 @@ from graph.state import GraphState
 load_dotenv()
 
 
-SCRUM_MASTER_PROMPT = """Eres un Scrum Master experimentado con profundo conocimiento técnico.
+SCRUM_MASTER_PROMPT = """Eres un Scrum Master experimentado. Planifica sprints y descompón user stories en tareas técnicas.
 
-Tu misión es LEER las user stories generadas por el Product Manager y crear un plan de sprints detallado.
+Proyecto: {project_name}
+Stack Backend: {backend_tech_stack}
+Stack Frontend: {frontend_tech_stack}
 
-CONTEXTO TÉCNICO:
-- Backend: {backend_tech_stack}
-- Frontend: {frontend_tech_stack}
+UBICACIÓN:
+- Lee user stories de: {input_dir_absolute}/
+- Lee backlog.md para dependencias
+- Escribe archivos en: {output_dir_absolute}/
 
-UBICACIÓN DE ARCHIVOS:
-- User Stories: {input_dir_absolute}/
-- Archivos a leer: user_story_01.md, user_story_02.md, etc.
-- Backlog: {input_dir_absolute}/backlog.md
+TAREAS:
 
-PROCESO (5 FASES):
+1. Lee TODAS las user stories (user_story_*.md) y backlog.md
+2. Organiza en sprints (10-15 pts cada uno, respetando prioridades y dependencias)
+3. Descompón cada user story en tareas técnicas backend/frontend con ID único
+4. Identifica dependencias entre tareas (ej: FE integración requiere BE endpoints)
 
-1. LECTURA DE USER STORIES:
-   - Lee TODOS los archivos user_story_*.md usando read_file
-   - Extrae: ID, Título, Epic, Prioridad (HIGH/MEDIUM/LOW), Story Points, Dependencias
-   - Lee backlog.md para ver el grafo de dependencias completo
+ARCHIVOS A CREAR:
 
-2. ORGANIZACIÓN EN SPRINTS:
-   - Sprint típico: 10-15 story points
-   - Respetar dependencias (no asignar una story si depende de otra en sprint futuro)
-   - Priorizar: HIGH primero, luego MEDIUM, luego LOW
-   - Sprint 1: Stories de alta prioridad sin dependencias bloqueantes
+1. sprint_plan.md: Plan de sprints con user stories y tareas organizadas por sprint
+2. backend_tasks.md: Lista detallada de tareas backend (modelos, schemas, CRUD, endpoints, tests)
+3. frontend_tasks.md: Lista detallada de tareas frontend (componentes, state, API, tests)
+4. dependencies_map.md: Diagrama mermaid mostrando dependencias entre tareas
 
-3. DESCOMPOSICIÓN EN TAREAS TÉCNICAS:
-   Para cada user story, crear tareas específicas:
-
-   BACKEND (si aplica):
-   - [STORY_ID]_BE_01: Crear modelo SQLAlchemy (2h)
-   - [STORY_ID]_BE_02: Crear schemas Pydantic (1h)
-   - [STORY_ID]_BE_03: Implementar CRUD/servicios (3h)
-   - [STORY_ID]_BE_04: Crear endpoints FastAPI (2h)
-   - [STORY_ID]_BE_05: Tests backend >80% (2h)
-
-   FRONTEND (si aplica):
-   - [STORY_ID]_FE_01: Crear componentes React + TailwindCSS (3h)
-   - [STORY_ID]_FE_02: Implementar state management Zustand (2h)
-   - [STORY_ID]_FE_03: Integrar con API backend (2h) - DEPENDE DE BE_04
-   - [STORY_ID]_FE_04: Tests frontend con testing-library (2h)
-
-4. IDENTIFICACIÓN DE DEPENDENCIAS ENTRE TAREAS:
-   - Frontend API integration requiere Backend API endpoints
-   - Tests requieren implementación completa
-   - Marcar claramente: "DEPENDE DE: [task_id]"
-
-5. CREAR ARCHIVOS DE SALIDA:
-   Usar write_file con rutas completas {output_dir_absolute}/:
-
-   a) sprint_plan.md:
-      ```markdown
-      # Sprint Planning - {project_name}
-
-      ## Sprint 1 (15 pts) - Semanas 1-2
-      ### User Stories:
-      - user_story_01: Registro y Login (8 pts) - HIGH
-      - user_story_02: CRUD Tareas (5 pts) - HIGH
-
-      ### Tareas Backend:
-      - user_story_01_BE_01: Crear modelo User (2h)
-      - user_story_01_BE_02: Schemas Pydantic User (1h)
-      ...
-
-      ### Tareas Frontend:
-      - user_story_01_FE_01: Componente Login (3h)
-      ...
-
-      ### Dependencias Críticas:
-      - user_story_01_FE_03 DEPENDE DE user_story_01_BE_04
-
-      ## Sprint 2 (12 pts) - Semanas 3-4
-      ...
-      ```
-
-   b) backend_tasks.md:
-      ```markdown
-      # Tareas Backend - {project_name}
-
-      ## Sprint 1
-      ### user_story_01 - Registro y Login
-      - [ ] user_story_01_BE_01: Crear modelo User SQLAlchemy (2h)
-           Descripción: Modelo con id, username, email, password_hash
-           Campos: timestamps, constraints, indexes
-      - [ ] user_story_01_BE_02: Schemas Pydantic (1h)
-           Request/Response schemas con validación
-      ...
-      ```
-
-   c) frontend_tasks.md:
-      ```markdown
-      # Tareas Frontend - {project_name}
-
-      ## Sprint 1
-      ### user_story_01 - Registro y Login
-      - [ ] user_story_01_FE_01: Componentes Login/Register (3h)
-           Formularios con validación, TailwindCSS styling
-      - [ ] user_story_01_FE_02: Store Zustand auth (2h)
-           Estado: user, token, isAuthenticated
-           Acciones: login, register, logout
-      ...
-      ```
-
-   d) dependencies_map.md:
-      ```markdown
-      # Mapa de Dependencias - Tareas Técnicas
-
-      ```mermaid
-      graph TD
-        user_story_01_BE_01 --> user_story_01_BE_02
-        user_story_01_BE_02 --> user_story_01_BE_03
-        user_story_01_BE_03 --> user_story_01_BE_04
-        user_story_01_BE_04 --> user_story_01_BE_05
-        user_story_01_BE_04 --> user_story_01_FE_03
-        user_story_01_FE_01 --> user_story_01_FE_02
-        user_story_01_FE_02 --> user_story_01_FE_03
-      ```
-      ```
-
-FORMATO:
-- Usar markdown profesional
-- Checkboxes para tareas: - [ ]
-- Estimaciones en horas
-- Dependencias explícitas
-- Rutas completas en write_file
-
-NO TERMINES HASTA CREAR TODOS LOS ARCHIVOS (sprint_plan.md, backend_tasks.md, frontend_tasks.md, dependencies_map.md).
-COMIENZA AHORA.
+Usa checkboxes, estimaciones en horas, IDs únicos tipo [STORY_ID]_BE_01, y marca dependencias claramente.
+Usa write_file con rutas completas. Crea TODOS los archivos.
 """
 
 
@@ -192,25 +91,19 @@ async def scrum_master_node_async(state: GraphState):
             output_dir_absolute=output_dir_absolute,
         )
 
+        parent_dir = Path("output")
+        parent_dir_absolute = parent_dir.resolve()
+
         # Configurar MCP client con acceso a ambos directorios
         # El agente necesita leer de input_dir y escribir en output_dir
         client = MultiServerMCPClient(
             {
-                "filesystem_read": {
+                "filesystem": {
                     "command": "npx",
                     "args": [
                         "-y",
                         "@modelcontextprotocol/server-filesystem",
-                        str(input_dir),
-                    ],
-                    "transport": "stdio",
-                },
-                "filesystem_write": {
-                    "command": "npx",
-                    "args": [
-                        "-y",
-                        "@modelcontextprotocol/server-filesystem",
-                        str(output_dir),
+                        str(parent_dir_absolute),
                     ],
                     "transport": "stdio",
                 }
