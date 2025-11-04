@@ -7,14 +7,75 @@ from typing import TypedDict, List, Dict, Optional, Literal
 from datetime import datetime
 
 
-class UserStory(TypedDict):
-    """Una historia de usuario"""
+class Epic(TypedDict):
+    """Una épica que agrupa user stories relacionadas"""
+
     id: str
-    title: str
+    name: str
+    business_objective: str
+    user_stories: List[str]  # IDs de las user stories
+    success_metrics: List[str]
+    dependencies: List[str]
+
+
+class TechnicalContext(TypedDict):
+    """Contexto técnico de una user story"""
+
+    stack: str  # "Backend", "Frontend", "Both", "Infrastructure"
+    components: List[str]  # Módulos o componentes afectados
+    apis_endpoints: List[str]  # URLs y métodos HTTP
+    data_models: List[str]  # Entidades de BD involucradas
+
+
+class AcceptanceCriterion(TypedDict):
+    """Criterio de aceptación en formato DADO-CUANDO-ENTONCES"""
+
+    given: str  # Contexto/precondición
+    when: str  # Acción del usuario
+    then: str  # Resultado esperado
+
+
+class TestScenario(TypedDict):
+    """Escenario de prueba"""
+
+    type: Literal["happy_path", "edge_case", "error_handling"]
     description: str
-    acceptance_criteria: List[str]
+
+
+class Dependency(TypedDict):
+    """Dependencia de una user story"""
+
+    requires: List[str]  # IDs de historias que deben completarse antes
+    blocks: List[str]  # IDs de historias que dependen de esta
+
+
+class Risk(TypedDict):
+    """Riesgo identificado y su mitigación"""
+
+    description: str
+    impact: Literal["high", "medium", "low"]
+    mitigation: str
+
+
+class UserStory(TypedDict):
+    """Una historia de usuario mejorada con contexto completo"""
+
+    id: str
+    epic_id: str  # Relación con épica
+    title: str
+    description: str  # Formato: "Como [rol], quiero [acción], para [beneficio]"
+    technical_context: TechnicalContext
+    acceptance_criteria: List[AcceptanceCriterion]
+    definition_of_done: List[str]
+    test_scenarios: List[TestScenario]
+    dependencies: Dependency
+    risks: List[Risk]
+    technical_notes: str
+    ux_ui_criteria: List[str]  # Criterios de UX/UI si aplican
     priority: Literal["high", "medium", "low"]
+    priority_justification: str
     estimated_points: int
+    estimation_breakdown: str  # Justificación de la estimación
 
 
 class Task(TypedDict):
@@ -156,3 +217,4 @@ def create_initial_state(
         project_summary="",
         deployment_ready=False
     )
+

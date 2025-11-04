@@ -10,7 +10,6 @@ Este nodo:
 
 import asyncio
 from pathlib import Path
-from typing import List
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from langgraph.prebuilt import create_react_agent
 import asyncio
@@ -20,38 +19,83 @@ load_dotenv()
 
 # from src.state import DevelopmentState, UserStory
 
-from typing import TypedDict, List, Literal
 
+PRODUCT_MANAGER_PROMPT = """Eres un Product Manager experimentado. Creas user stories detalladas con contexto técnico completo.
 
-class UserStory(TypedDict):
-    """Una historia de usuario"""
+FORMATO USER STORY:
+# [ID] - [Título]
+**Epic:** [Epic_ID - Nombre]
 
-    id: str
-    title: str
-    description: str
-    acceptance_criteria: List[str]
-    priority: Literal["high", "medium", "low"]
-    estimated_points: int
+## Descripción
+Como [rol], quiero [acción], para [beneficio].
 
+## Contexto Técnico
+- **Stack:** [Backend/Frontend/Both]
+- **Componentes:** [lista]
+- **APIs:** [METHOD /endpoint - descripción]
+- **Modelos:** [Tabla: campos]
 
-PRODUCT_MANAGER_PROMPT = """Eres un Product Manager experimentado con expertise en:
-- Análisis de requerimientos
-- Escribir user stories claras y accionables
-- Definir acceptance criteria específicos
-- Priorizar features basándose en valor de negocio
+## Acceptance Criteria
+### [Escenario]
+- **DADO** [contexto]
+- **CUANDO** [acción]
+- **ENTONCES** [resultado]
 
-Tu responsabilidad es tomar requerimientos del usuario y convertirlos en user stories bien definidas.
+## Definition of Done
+- [ ] Código + tests (>80% coverage)
+- [ ] Code review aprobado
+- [ ] Documentación actualizada
+- [ ] Sin vulnerabilidades
+- [ ] Performance validada
 
-Formato de user stories:
-- Título claro y conciso
-- Descripción en formato: "Como [rol], quiero [acción], para [beneficio]"
-- Acceptance criteria específicos y verificables
-- Prioridad basada en valor (high, medium, low)
-- Story points estimados (1-13 usando Fibonacci)
+## Escenarios de Prueba
+1. **Happy Path:** [descripción]
+2. **Edge Cases:** [casos límite]
+3. **Errors:** [manejo de errores]
 
-Sé exhaustivo pero pragmático. Enfócate en crear un MVP funcional primero.
+## Dependencias
+- **Requiere:** [IDs]
+- **Bloquea:** [IDs]
 
-IMPORTANTE: Usa las herramientas de filesystem disponibles para guardar archivos.
+## Riesgos
+- [Descripción] - Impacto: [H/M/L] - Mitigación: [plan]
+
+## Notas Técnicas
+- Implementación: [patrones, librerías]
+- Seguridad: [consideraciones OWASP]
+- Performance: <[X]ms
+
+## Prioridad
+**[HIGH/MEDIUM/LOW]** - Justificación: [razón]
+
+## Story Points
+**[1-13]** - Complejidad: [L/M/H], Esfuerzo: [X]h
+
+---
+
+FORMATO ÉPICA:
+# Epic [ID]: [Nombre]
+## Business Objective
+[Objetivo medible]
+
+## User Stories
+- [US_XX] - [Título] ([N] pts)
+Total: [X] points
+
+## Success Metrics
+- [KPI]: [Target]
+
+## Riesgos
+- [Descripción]
+
+---
+
+INSTRUCCIONES:
+1. Enfócate en MVP funcional
+2. Considera seguridad (OWASP), edge cases, performance
+3. Identifica dependencias claras
+4. Agrupa en épicas lógicas
+5. Usa filesystem tools para guardar archivos
 """
 
 
@@ -67,14 +111,12 @@ async def product_manager_node_async():
     backend_tech_stack = "FastAPI, PostgreSQL, SQLAlchemy"
     frontend_tech_stack = "React, TailwindCSS, Redux"
 
-    # Crear directorio de salida para user stories
     output_dir = Path("output/user_stories")
     output_dir.mkdir(parents=True, exist_ok=True)
     output_dir_absolute = output_dir.resolve()
 
     print(f"   📁 Directorio de salida: {output_dir_absolute}")
 
-    # Preparar contexto
     context = f"""
 Proyecto: {project_name}
 
@@ -96,52 +138,66 @@ Tech Stack Frontend: {frontend_tech_stack}
     )
     query = f"""{context}
 
-DIRECTORIO DE GUARDADO: {output_dir_absolute}
+RUTA BASE: {output_dir_absolute}
+Usa rutas completas: {output_dir_absolute}/archivo.md
 
-Por favor, analiza este requerimiento y crea un product backlog con user stories.
+MISIÓN: Crear product backlog completo y profesional.
 
-Tareas:
-1. Descomponer el requerimiento en user stories manejables
-2. Escribir cada user story en formato estándar
-3. Definir acceptance criteria claros para cada historia
-4. Asignar prioridad (high/medium/low)
-5. Estimar story points (1-13)
-6. GUARDAR cada user story en un archivo .md separado
+PROCESO (5 FASES):
 
-Considera:
-- Backend: FastAPI, PostgreSQL, SQLAlchemy
-- Frontend: React, TailwindCSS, Redux
-- Necesitamos un MVP funcional
+1. ANÁLISIS
+   - Identifica épicas (ej: Autenticación, Gestión Tareas, UI)
+   - Identifica dependencias técnicas
+   - Identifica riesgos (técnicos, negocio, seguridad OWASP)
+   - Define roadmap: MVP → Mejoras → Optimización
 
-CRÍTICO - INSTRUCCIONES DE GUARDADO:
-- Usa las herramientas de filesystem MCP disponibles (write_file o similar)
-- Guarda cada archivo con la RUTA COMPLETA: {output_dir_absolute}/user_story_[número].md
-- Ejemplo de ruta: {output_dir_absolute}/user_story_01.md
-- Crea archivos numerados: user_story_01.md, user_story_02.md, etc.
+2. ÉPICAS
+   Archivos: {output_dir_absolute}/epic_01_nombre.md, epic_02_*.md, etc.
+   Usa formato ÉPICA del prompt.
+   Incluye: Business Objective, User Stories, Success Metrics, Riesgos
 
-Formato de cada archivo .md:
+3. USER STORIES
+   Archivos: {output_dir_absolute}/user_story_01.md, user_story_02.md, etc.
+   Usa formato USER STORY del prompt.
 
-# [Título de la historia]
+   TODAS las secciones obligatorias:
+   ✅ Descripción + Contexto Técnico (stack, componentes, APIs, modelos)
+   ✅ Acceptance Criteria (DADO-CUANDO-ENTONCES)
+   ✅ Definition of Done + Escenarios de Prueba
+   ✅ Dependencias + Riesgos + Notas Técnicas
+   ✅ Prioridad justificada + Story Points
 
-## Descripción
-Como [rol], quiero [acción], para [beneficio]
+   Tech Stack:
+   Backend: FastAPI, PostgreSQL, SQLAlchemy, JWT, Alembic, Pydantic
+   Frontend: React, TailwindCSS, Redux, React Router, axios
+   Seguridad: CSRF, XSS, SQL Injection prevention, bcrypt, rate limiting
 
-## Acceptance Criteria
-- Criterio 1
-- Criterio 2
-- Criterio 3
+4. BACKLOG MAESTRO
+   Archivo: {output_dir_absolute}/backlog.md
 
-## Prioridad
-[high/medium/low]
+   Estructura:
+   - 📋 Resumen Ejecutivo (visión, objetivos, métricas, stack)
+   - 🗺️ Roadmap por Fases (MVP/Mejoras/Optimización con puntos y DoD)
+   - 📚 Épicas (objetivo, stories, puntos, prioridad)
+   - 📊 User Stories por Prioridad (HIGH/MEDIUM/LOW con resumen)
+   - 🔗 Matriz Dependencias (grafo mermaid + ruta crítica)
+   - ⚠️ Riesgos (tabla: ID, riesgo, impacto, probabilidad, mitigación)
+   - 📈 Estimaciones (total puntos, desglose, timeline, velocity)
+   - ✅ Definition of Done Global
+   - 📖 Convenciones (naming, docs, testing)
 
-## Story Points
-[número de 1-13]
+5. DOCS ADICIONALES
+   - {output_dir_absolute}/dependencies_graph.md: Grafo mermaid + ruta crítica
+   - {output_dir_absolute}/technical_architecture.md: Diagrama + stack + patrones
 
----
+CRÍTICO:
+✅ Usa filesystem MCP tools (write_file)
+✅ RUTAS COMPLETAS: {output_dir_absolute}/
+✅ Crea TODOS los archivos
+✅ NO omitas secciones
+✅ Sé exhaustivo
 
-Después de crear todos los archivos de user stories, crea también un archivo "backlog.md" 
-en la misma ubicación ({output_dir_absolute}/backlog.md) con el resumen del product backlog completo,
-incluyendo todas las historias numeradas y ordenadas por prioridad.
+¡COMIENZA AHORA! NO TE DETENGAS HASTA COMPLETAR TODAS LAS TAREAS.
 """
 
     tools = await client.get_tools()
