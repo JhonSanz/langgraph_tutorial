@@ -13,6 +13,7 @@ from pathlib import Path
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from langgraph.prebuilt import create_react_agent
 from dotenv import load_dotenv
+from graph.state import GraphState
 
 load_dotenv()
 
@@ -63,7 +64,7 @@ COMIENZA AHORA. NO TERMINES HASTA COMPLETAR TODO.
 """
 
 
-async def product_manager_node_async():
+async def product_manager_node_async(state: GraphState):
     """
     Nodo del Product Manager - Crea user stories desde el requerimiento.
     """
