@@ -57,10 +57,10 @@ async def backend_crud_node_async(state: GraphState):
     print("\n⚙️  Backend CRUD - Creando operaciones CRUD...")
 
     try:
-        project_name = state["project_name"]
-        backend_tech_stack = state["backend_stack"]
-        sprint_planning_dir = state["sprint_planning_dir"]
-        output_dir = state["backend_output_dir"]
+        project_name = state.get("project_name", "test_project")
+        backend_tech_stack = state.get("backend_stack", "FastAPI, PostgreSQL, SQLAlchemy")
+        sprint_planning_dir = state.get("sprint_planning_dir", "")
+        output_dir = state.get("backend_output_dir", "")
 
         print(f"   📖 Leyendo modelos y schemas...")
 

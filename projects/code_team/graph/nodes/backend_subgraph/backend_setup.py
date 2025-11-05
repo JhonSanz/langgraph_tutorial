@@ -83,11 +83,11 @@ async def backend_setup_node_async(state: GraphState):
     print("\n🏗️  Backend Setup - Creando estructura base...")
 
     try:
-        project_name = state["project_name"]
-        backend_tech_stack = state["backend_stack"]
-        user_stories_dir = state["user_stories_dir"]
-        sprint_planning_dir = state["sprint_planning_dir"]
-        output_dir = state["backend_output_dir"]
+        project_name = state.get("project_name", "test_project")
+        backend_tech_stack = state.get("backend_stack", "FastAPI, PostgreSQL, SQLAlchemy")
+        user_stories_dir = state.get("user_stories_dir", "")
+        sprint_planning_dir = state.get("sprint_planning_dir", "")
+        output_dir = state.get("backend_output_dir", "")
 
         print(f"   📁 Generando estructura en: {output_dir}")
 

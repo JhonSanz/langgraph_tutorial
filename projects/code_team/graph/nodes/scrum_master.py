@@ -61,9 +61,9 @@ async def scrum_master_node_async(state: GraphState):
     print("\n📋 Scrum Master - Planificando sprints y asignando tareas...")
 
     try:
-        project_name = "test_project"
-        backend_tech_stack = state.backend_stack
-        frontend_tech_stack = state.frontend_stack
+        project_name = state.get("project_name", "test_project")
+        backend_tech_stack = state.get("backend_stack", "FastAPI, PostgreSQL, SQLAlchemy")
+        frontend_tech_stack = state.get("frontend_stack", "React, TailwindCSS, Zustand")
 
         # Directorio donde el Product Manager creó las user stories
         input_dir = Path("output/user_stories")

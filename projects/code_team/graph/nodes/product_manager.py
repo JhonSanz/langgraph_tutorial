@@ -79,9 +79,9 @@ async def product_manager_node_async(state: GraphState):
     user_requirement = user_query.content if user_query else ""
 
     try:
-        project_name = "test_project"
-        backend_tech_stack = state.backend_stack
-        frontend_tech_stack = state.frontend_stack
+        project_name = state.get("project_name", "test_project")
+        backend_tech_stack = state.get("backend_stack", "FastAPI, PostgreSQL, SQLAlchemy")
+        frontend_tech_stack = state.get("frontend_stack", "React, TailwindCSS, Zustand")
 
         output_dir = Path("output/user_stories")
         output_dir.mkdir(parents=True, exist_ok=True)

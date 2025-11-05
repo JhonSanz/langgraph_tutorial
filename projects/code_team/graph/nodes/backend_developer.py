@@ -33,6 +33,11 @@ async def backend_developer_node_async(state: GraphState):
     print("\n🔧 Backend Developer - Iniciando construcción del backend...")
 
     try:
+        # Obtener configuración del estado
+        project_name = state.get("project_name", "test_project")
+        backend_stack = state.get("backend_stack", "FastAPI, PostgreSQL, SQLAlchemy")
+        frontend_stack = state.get("frontend_stack", "React, TailwindCSS, Zustand")
+
         # Directorios de entrada
         sprint_planning_dir = Path("output/sprint_planning")
         user_stories_dir = Path("output/user_stories")
@@ -78,11 +83,11 @@ async def backend_developer_node_async(state: GraphState):
 
         summary = (
             f"Backend Developer - Implementación completada exitosamente:\n"
-            f"- Proyecto: {state['project_name']}\n"
+            f"- Proyecto: {project_name}\n"
             f"- Archivos Python generados: {files_count}\n"
             f"- Directorio: {output_dir_absolute}\n"
             f"- Subgrafo ejecutado: setup → models → schemas → crud → api → tests\n"
-            f"- Stack: {state['backend_stack']}"
+            f"- Stack: {backend_stack}"
         )
 
         print(f"\n✅ {summary}")
