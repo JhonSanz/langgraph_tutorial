@@ -127,9 +127,17 @@ async def scrum_master_node_async(state: GraphState):
 
         print("📋 Scrum Master - Proceso completado.")
 
-        # Verificar archivos creados
+        # Verificar que se hayan creado archivos
         created_files = list(output_dir.rglob("*.md"))
         files_count = len(created_files)
+
+        if files_count == 0:
+            error_msg = (
+                f"Scrum Master - Error: No se crearon archivos en {output_dir_absolute}\n"
+                "El agente no generó la planificación. Verifica el prompt o intenta nuevamente."
+            )
+            print(f"\n❌ {error_msg}")
+            return {"messages": [SystemMessage(content=error_msg)]}
 
         summary = (
             f"Scrum Master - Planificación completada exitosamente:\n"

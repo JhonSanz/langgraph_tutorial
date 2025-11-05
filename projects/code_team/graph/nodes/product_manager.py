@@ -118,8 +118,17 @@ async def product_manager_node_async(state: GraphState):
 
         print("👔 Product Manager - Proceso completado.")
 
+        # Verificar que se hayan creado archivos
         created_files = list(output_dir.rglob("*.md"))
         files_count = len(created_files)
+
+        if files_count == 0:
+            error_msg = (
+                f"Product Manager - Error: No se crearon archivos en {output_dir_absolute}\n"
+                "El agente no generó user stories. Verifica el prompt o intenta nuevamente."
+            )
+            print(f"\n❌ {error_msg}")
+            return {"messages": [SystemMessage(content=error_msg)]}
 
         summary = (
             f"Product Manager - Proceso completado exitosamente:\n"

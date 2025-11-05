@@ -86,9 +86,17 @@ async def backend_developer_node_async(state: GraphState):
 
         print("\n🔧 Backend Developer - Proceso completado.")
 
-        # Verificar archivos creados
+        # Verificar que se hayan creado archivos
         created_files = list(output_dir.rglob("*.py"))
         files_count = len(created_files)
+
+        if files_count == 0:
+            error_msg = (
+                f"Backend Developer - Error: No se crearon archivos Python en {output_dir_absolute}\n"
+                "El subgrafo no generó código. Verifica los prompts o intenta nuevamente."
+            )
+            print(f"\n❌ {error_msg}")
+            return {"messages": [SystemMessage(content=error_msg)]}
 
         summary = (
             f"Backend Developer - Implementación completada exitosamente:\n"
