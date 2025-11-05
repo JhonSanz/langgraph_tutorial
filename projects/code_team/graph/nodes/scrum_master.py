@@ -65,12 +65,18 @@ async def scrum_master_node_async(state: GraphState):
         backend_tech_stack = state.get("backend_stack", "FastAPI, PostgreSQL, SQLAlchemy")
         frontend_tech_stack = state.get("frontend_stack", "React, TailwindCSS, Zustand")
 
-        # Directorio donde el Product Manager creó las user stories
-        input_dir = Path("output/user_stories")
-        input_dir_absolute = input_dir.resolve()
+        # Directorio donde el Product Manager creó las user stories - Leer del estado
+        user_stories_dir_str = state.get("user_stories_dir")
 
-        if not input_dir.exists():
-            error_msg = f"Scrum Master - Error: Directorio {input_dir_absolute} no encontrado. Ejecuta Product Manager primero."
+        if not user_stories_dir_str:
+            error_msg = "Scrum Master - Error: user_stories_dir no encontrado en el estado. Ejecuta Product Manager primero."
+            print(f"❌ {error_msg}")
+            return {"messages": [SystemMessage(content=error_msg)]}
+
+        input_dir_absolute = Path(user_stories_dir_str)
+
+        if not input_dir_absolute.exists():
+            error_msg = f"Scrum Master - Error: Directorio {input_dir_absolute} no existe. Ejecuta Product Manager primero."
             print(f"❌ {error_msg}")
             return {"messages": [SystemMessage(content=error_msg)]}
 
@@ -128,7 +134,7 @@ async def scrum_master_node_async(state: GraphState):
         summary = (
             f"Scrum Master - Planificación completada exitosamente:\n"
             f"- Proyecto: {project_name}\n"
-            f"- User stories analizadas: {len(list(input_dir.glob('user_story_*.md')))}\n"
+            f"- User stories analizadas: {len(list(input_dir_absolute.glob('user_story_*.md')))}\n"
             f"- Archivos de planificación generados: {files_count}\n"
             f"- Directorio: {output_dir_absolute}\n"
             f"- Sprint plan, tareas backend/frontend y mapa de dependencias creados"
@@ -136,7 +142,10 @@ async def scrum_master_node_async(state: GraphState):
 
         print(f"\n✅ {summary}")
 
-        return {"messages": [SystemMessage(content=summary)]}
+        return {
+            "messages": [SystemMessage(content=summary)],
+            "sprint_planning_dir": str(output_dir_absolute),
+        }
 
     except Exception as e:
         error_msg = (

@@ -131,7 +131,10 @@ async def product_manager_node_async(state: GraphState):
 
         print(f"\n✅ {summary}")
 
-        return {"messages": [SystemMessage(content=summary)]}
+        return {
+            "messages": [SystemMessage(content=summary)],
+            "user_stories_dir": str(output_dir_absolute),
+        }
 
     except Exception as e:
         error_msg = (
