@@ -78,40 +78,57 @@ async def product_manager_node_async(state: GraphState):
     )
     user_requirement = user_query.content if user_query else ""
 
-    try:
-        project_name = state.get("project_name", "test_project")
-        backend_tech_stack = state.get("backend_stack", "FastAPI, PostgreSQL, SQLAlchemy")
-        frontend_tech_stack = state.get("frontend_stack", "React, TailwindCSS, Zustand")
-        main_output = state.get("main_output")
+    project_name = state.get("project_name", "test_project")
+    backend_tech_stack = state.get("backend_stack", "FastAPI, PostgreSQL, SQLAlchemy")
+    frontend_tech_stack = state.get("frontend_stack", "React, TailwindCSS, Zustand")
+    main_output = state.get("main_output")
 
-        output_dir = Path(main_output) / "user_stories"
-        output_dir.mkdir(parents=True, exist_ok=True)
-        output_dir_absolute = output_dir.resolve()
+    output_dir = Path(main_output) / "user_stories"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_dir_absolute = output_dir.resolve()
 
-        print(f"   📁 Directorio de salida: {output_dir_absolute}")
+    print(f"   📁 Directorio de salida: {output_dir_absolute}")
 
-        prompt = QUERY.format(
-            project_name=project_name,
-            user_requirement=user_requirement,
-            backend_tech_stack=backend_tech_stack,
-            frontend_tech_stack=frontend_tech_stack,
-            output_dir_absolute=output_dir_absolute,
+    # Validar si ya existen archivos en el directorio
+    existing_files = list(output_dir.rglob("*.md"))
+    if existing_files:
+        warning_msg = (
+            f"Product Manager - El directorio ya contiene archivos:\n"
+            f"- Proyecto: {project_name}\n"
+            f"- Archivos existentes: {len(existing_files)}\n"
+            f"- Directorio: {output_dir_absolute}\n"
+            f"- User stories ya fueron generados previamente"
         )
+        print(f"\n⚠️  {warning_msg}")
 
-        client = MultiServerMCPClient(
-            {
-                "filesystem": {
-                    "command": "npx",
-                    "args": [
-                        "-y",
-                        "@modelcontextprotocol/server-filesystem",
-                        str(output_dir),
-                    ],
-                    "transport": "stdio",
-                }
+        return {
+            "messages": [SystemMessage(content=warning_msg)],
+            "user_stories_dir": str(output_dir_absolute),
+        }
+
+    prompt = QUERY.format(
+        project_name=project_name,
+        user_requirement=user_requirement,
+        backend_tech_stack=backend_tech_stack,
+        frontend_tech_stack=frontend_tech_stack,
+        output_dir_absolute=output_dir_absolute,
+    )
+
+    client = MultiServerMCPClient(
+        {
+            "filesystem": {
+                "command": "npx",
+                "args": [
+                    "-y",
+                    "@modelcontextprotocol/server-filesystem",
+                    str(output_dir),
+                ],
+                "transport": "stdio",
             }
-        )
+        }
+    )
 
+    try:
         tools = await client.get_tools()
         agent = create_react_agent("openai:gpt-4.1", tools)
 

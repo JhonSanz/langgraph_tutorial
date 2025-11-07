@@ -60,60 +60,77 @@ async def scrum_master_node_async(state: GraphState):
 
     print("\n📋 Scrum Master - Planificando sprints y asignando tareas...")
 
-    try:
-        project_name = state.get("project_name", "test_project")
-        backend_tech_stack = state.get("backend_stack", "FastAPI, PostgreSQL, SQLAlchemy")
-        frontend_tech_stack = state.get("frontend_stack", "React, TailwindCSS, Zustand")
-        main_output = state.get("main_output")
+    project_name = state.get("project_name", "test_project")
+    backend_tech_stack = state.get("backend_stack", "FastAPI, PostgreSQL, SQLAlchemy")
+    frontend_tech_stack = state.get("frontend_stack", "React, TailwindCSS, Zustand")
+    main_output = state.get("main_output")
 
-        # Directorio donde el Product Manager creó las user stories - Leer del estado
-        user_stories_dir_str = state.get("user_stories_dir")
+    # Directorio donde el Product Manager creó las user stories - Leer del estado
+    user_stories_dir_str = state.get("user_stories_dir")
 
-        if not user_stories_dir_str:
-            error_msg = "Scrum Master - Error: user_stories_dir no encontrado en el estado. Ejecuta Product Manager primero."
-            print(f"❌ {error_msg}")
-            return {"messages": [SystemMessage(content=error_msg)]}
+    if not user_stories_dir_str:
+        error_msg = "Scrum Master - Error: user_stories_dir no encontrado en el estado. Ejecuta Product Manager primero."
+        print(f"❌ {error_msg}")
+        return {"messages": [SystemMessage(content=error_msg)]}
 
-        input_dir_absolute = Path(user_stories_dir_str)
+    input_dir_absolute = Path(user_stories_dir_str)
 
-        if not input_dir_absolute.exists():
-            error_msg = f"Scrum Master - Error: Directorio {input_dir_absolute} no existe. Ejecuta Product Manager primero."
-            print(f"❌ {error_msg}")
-            return {"messages": [SystemMessage(content=error_msg)]}
+    if not input_dir_absolute.exists():
+        error_msg = f"Scrum Master - Error: Directorio {input_dir_absolute} no existe. Ejecuta Product Manager primero."
+        print(f"❌ {error_msg}")
+        return {"messages": [SystemMessage(content=error_msg)]}
 
-        # Directorio de salida para el plan de sprints
-        output_dir = Path(main_output) / "sprint_planning"
-        output_dir.mkdir(parents=True, exist_ok=True)
-        output_dir_absolute = output_dir.resolve()
+    # Directorio de salida para el plan de sprints
+    output_dir = Path(main_output) / "sprint_planning"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_dir_absolute = output_dir.resolve()
 
-        print(f"   📖 Leyendo user stories de: {input_dir_absolute}")
-        print(f"   📁 Salida de planificación: {output_dir_absolute}")
+    print(f"   📖 Leyendo user stories de: {input_dir_absolute}")
+    print(f"   📁 Salida de planificación: {output_dir_absolute}")
 
-        # Crear prompt con variables
-        prompt = SCRUM_MASTER_PROMPT.format(
-            project_name=project_name,
-            backend_tech_stack=backend_tech_stack,
-            frontend_tech_stack=frontend_tech_stack,
-            input_dir_absolute=input_dir_absolute,
-            output_dir_absolute=output_dir_absolute,
+    # Validar si ya existen archivos en el directorio
+    existing_files = list(output_dir.rglob("*.md"))
+    if existing_files:
+        warning_msg = (
+            f"Scrum Master - El directorio ya contiene archivos:\n"
+            f"- Proyecto: {project_name}\n"
+            f"- Archivos existentes: {len(existing_files)}\n"
+            f"- Directorio: {output_dir_absolute}\n"
+            f"- Sprint planning ya fue generado previamente"
         )
+        print(f"\n⚠️  {warning_msg}")
 
-        # Configurar MCP client con acceso a ambos directorios
-        # El agente necesita leer de input_dir y escribir en output_dir
-        client = MultiServerMCPClient(
-            {
-                "filesystem": {
-                    "command": "npx",
-                    "args": [
-                        "-y",
-                        "@modelcontextprotocol/server-filesystem",
-                        str(main_output),
-                    ],
-                    "transport": "stdio",
-                }
+        return {
+            "messages": [SystemMessage(content=warning_msg)],
+            "sprint_planning_dir": str(output_dir_absolute),
+        }
+
+    # Crear prompt con variables
+    prompt = SCRUM_MASTER_PROMPT.format(
+        project_name=project_name,
+        backend_tech_stack=backend_tech_stack,
+        frontend_tech_stack=frontend_tech_stack,
+        input_dir_absolute=input_dir_absolute,
+        output_dir_absolute=output_dir_absolute,
+    )
+
+    # Configurar MCP client con acceso a ambos directorios
+    # El agente necesita leer de input_dir y escribir en output_dir
+    client = MultiServerMCPClient(
+        {
+            "filesystem": {
+                "command": "npx",
+                "args": [
+                    "-y",
+                    "@modelcontextprotocol/server-filesystem",
+                    str(main_output),
+                ],
+                "transport": "stdio",
             }
-        )
+        }
+    )
 
+    try:
         # Obtener tools y crear agente
         tools = await client.get_tools()
         agent = create_react_agent("openai:gpt-4.1", tools)
