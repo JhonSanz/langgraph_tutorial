@@ -82,34 +82,35 @@ async def backend_setup_node_async(state: GraphState):
 
     print("\n🏗️  Backend Setup - Creando estructura base...")
 
+    project_name = state.get("project_name", "test_project")
+    backend_tech_stack = state.get("backend_stack", "FastAPI, PostgreSQL, SQLAlchemy")
+    user_stories_dir = state.get("user_stories_dir", "")
+    sprint_planning_dir = state.get("sprint_planning_dir", "")
+    output_dir = state.get("backend_output_dir", "")
+    main_output = state.get("main_output")
+
+    print(f"   📁 Generando estructura en: {output_dir}")
+
+    # Crear prompt
+    prompt = BACKEND_SETUP_PROMPT.format(
+        project_name=project_name,
+        backend_tech_stack=backend_tech_stack,
+        user_stories_dir=user_stories_dir,
+        sprint_planning_dir=sprint_planning_dir,
+        output_dir=output_dir,
+    )
+
+    # MCP client
+    parent_dir = Path(main_output).resolve()
+    client = MultiServerMCPClient({
+        "filesystem": {
+            "command": "npx",
+            "args": ["-y", "@modelcontextprotocol/server-filesystem", str(parent_dir)],
+            "transport": "stdio",
+        }
+    })
+
     try:
-        project_name = state.get("project_name", "test_project")
-        backend_tech_stack = state.get("backend_stack", "FastAPI, PostgreSQL, SQLAlchemy")
-        user_stories_dir = state.get("user_stories_dir", "")
-        sprint_planning_dir = state.get("sprint_planning_dir", "")
-        output_dir = state.get("backend_output_dir", "")
-
-        print(f"   📁 Generando estructura en: {output_dir}")
-
-        # Crear prompt
-        prompt = BACKEND_SETUP_PROMPT.format(
-            project_name=project_name,
-            backend_tech_stack=backend_tech_stack,
-            user_stories_dir=user_stories_dir,
-            sprint_planning_dir=sprint_planning_dir,
-            output_dir=output_dir,
-        )
-
-        # MCP client
-        parent_dir = Path("output").resolve()
-        client = MultiServerMCPClient({
-            "filesystem": {
-                "command": "npx",
-                "args": ["-y", "@modelcontextprotocol/server-filesystem", str(parent_dir)],
-                "transport": "stdio",
-            }
-        })
-
         tools = await client.get_tools()
         agent = create_react_agent("openai:gpt-4.1", tools)
 
