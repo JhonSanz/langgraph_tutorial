@@ -82,8 +82,9 @@ async def product_manager_node_async(state: GraphState):
         project_name = state.get("project_name", "test_project")
         backend_tech_stack = state.get("backend_stack", "FastAPI, PostgreSQL, SQLAlchemy")
         frontend_tech_stack = state.get("frontend_stack", "React, TailwindCSS, Zustand")
+        main_output = state.get("main_output")
 
-        output_dir = Path("output/user_stories")
+        output_dir = Path(main_output) / "user_stories"
         output_dir.mkdir(parents=True, exist_ok=True)
         output_dir_absolute = output_dir.resolve()
 

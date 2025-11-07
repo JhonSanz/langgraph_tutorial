@@ -1,6 +1,7 @@
 from langgraph.graph import StateGraph, END
 from graph.state import GraphState
 from graph.nodes.product_manager import product_manager_node_async
+from graph.nodes.scrum_master import scrum_master_node_async
 
 
 def build_graph() -> StateGraph:
@@ -17,9 +18,11 @@ def build_graph() -> StateGraph:
     workflow = StateGraph(GraphState)
 
     workflow.add_node("product_manager", product_manager_node_async)
+    workflow.add_node("scrum_master", scrum_master_node_async)
 
     workflow.set_entry_point("product_manager")
-    workflow.add_edge("review", END)
+    workflow.add_edge("product_manager", "scrum_master")
+    workflow.add_edge("scrum_master", END)
 
     graph = workflow.compile()
     return graph

@@ -19,3 +19,4 @@ class GraphState(TypedDict):
     sprint_planning_dir: NotRequired[str]
     backend_output_dir: NotRequired[str]
     frontend_output_dir: NotRequired[str]
+    main_output: NotRequired[str]

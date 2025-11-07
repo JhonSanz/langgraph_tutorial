@@ -1,6 +1,7 @@
 import asyncio
 from langchain_core.messages import HumanMessage
 from graph import build_graph
+from pathlib import Path
 
 
 async def main():
@@ -16,32 +17,37 @@ async def main():
     mermaid_code = graph.get_graph().draw_mermaid()
     print(mermaid_code)
 
+    output_dir = Path(__file__).parent / "output"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_dir_absolute = output_dir.resolve()
+
     # Estado inicial con valores por defecto
     initial_state = {
         "messages": [
             HumanMessage(
                 content="Crear una aplicación web para gestión de tareas con "
-                        "autenticación de usuarios, CRUD de tareas, y una interfaz intuitiva."
+                "autenticación de usuarios, CRUD de tareas, y una interfaz intuitiva."
             )
         ],
         # Configuración del proyecto
         "project_name": "test_project",
         "backend_stack": "FastAPI, PostgreSQL, SQLAlchemy",
         "frontend_stack": "React, TailwindCSS, Zustand",
+        "main_output": str(output_dir_absolute),
     }
 
     print("\n🚀 Iniciando ejecución del grafo con configuración:")
     print(f"   📦 Proyecto: {initial_state['project_name']}")
     print(f"   🔧 Backend: {initial_state['backend_stack']}")
     print(f"   🎨 Frontend: {initial_state['frontend_stack']}")
-    print("\n" + "="*80 + "\n")
+    print("\n" + "=" * 80 + "\n")
 
     # Ejecutar el grafo
     result = await graph.ainvoke(initial_state)
 
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("\n✅ Ejecución completada. Resumen de mensajes:")
-    print("="*80 + "\n")
+    print("=" * 80 + "\n")
 
     for i, msg in enumerate(result["messages"], 1):
         print(f"\n--- Mensaje {i} ---")

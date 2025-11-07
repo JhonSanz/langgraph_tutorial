@@ -64,6 +64,7 @@ async def scrum_master_node_async(state: GraphState):
         project_name = state.get("project_name", "test_project")
         backend_tech_stack = state.get("backend_stack", "FastAPI, PostgreSQL, SQLAlchemy")
         frontend_tech_stack = state.get("frontend_stack", "React, TailwindCSS, Zustand")
+        main_output = state.get("main_output")
 
         # Directorio donde el Product Manager creó las user stories - Leer del estado
         user_stories_dir_str = state.get("user_stories_dir")
@@ -81,7 +82,7 @@ async def scrum_master_node_async(state: GraphState):
             return {"messages": [SystemMessage(content=error_msg)]}
 
         # Directorio de salida para el plan de sprints
-        output_dir = Path("output/sprint_planning")
+        output_dir = Path(main_output) / "sprint_planning"
         output_dir.mkdir(parents=True, exist_ok=True)
         output_dir_absolute = output_dir.resolve()
 
@@ -97,9 +98,6 @@ async def scrum_master_node_async(state: GraphState):
             output_dir_absolute=output_dir_absolute,
         )
 
-        parent_dir = Path("output")
-        parent_dir_absolute = parent_dir.resolve()
-
         # Configurar MCP client con acceso a ambos directorios
         # El agente necesita leer de input_dir y escribir en output_dir
         client = MultiServerMCPClient(
@@ -109,7 +107,7 @@ async def scrum_master_node_async(state: GraphState):
                     "args": [
                         "-y",
                         "@modelcontextprotocol/server-filesystem",
-                        str(parent_dir_absolute),
+                        str(main_output),
                     ],
                     "transport": "stdio",
                 }
