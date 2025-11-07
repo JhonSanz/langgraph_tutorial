@@ -22,6 +22,7 @@ Stack: {backend_tech_stack}
 UBICACIÓN:
 - Lee modelos de: {output_dir}/app/models/
 - Lee tareas: {sprint_planning_dir}/backend_tasks.md
+- Lee contexto: {user_stories_dir}/
 - Escribe en: {output_dir}/app/schemas/
 
 TAREA: Crear schemas Pydantic basándote en los modelos SQLAlchemy
@@ -54,30 +55,33 @@ async def backend_schemas_node_async(state: GraphState):
 
     print("\n📋 Backend Schemas - Creando schemas Pydantic...")
 
+    project_name = state.get("project_name", "test_project")
+    backend_tech_stack = state.get("backend_stack", "FastAPI, PostgreSQL, SQLAlchemy")
+    sprint_planning_dir = state.get("sprint_planning_dir", "")
+    user_stories_dir = state.get("user_stories_dir", "")
+    output_dir = state.get("backend_output_dir", "")
+    main_output = state.get("main_output")
+
+    print(f"   📖 Leyendo modelos de: {output_dir}/app/models/")
+
+    prompt = BACKEND_SCHEMAS_PROMPT.format(
+        project_name=project_name,
+        backend_tech_stack=backend_tech_stack,
+        user_stories_dir=user_stories_dir,
+        sprint_planning_dir=sprint_planning_dir,
+        output_dir=output_dir,
+    )
+
+    parent_dir = Path(main_output).resolve()
+    client = MultiServerMCPClient({
+        "filesystem": {
+            "command": "npx",
+            "args": ["-y", "@modelcontextprotocol/server-filesystem", str(parent_dir)],
+            "transport": "stdio",
+        }
+    })
+
     try:
-        project_name = state.get("project_name", "test_project")
-        backend_tech_stack = state.get("backend_stack", "FastAPI, PostgreSQL, SQLAlchemy")
-        sprint_planning_dir = state.get("sprint_planning_dir", "")
-        output_dir = state.get("backend_output_dir", "")
-
-        print(f"   📖 Leyendo modelos de: {output_dir}/app/models/")
-
-        prompt = BACKEND_SCHEMAS_PROMPT.format(
-            project_name=project_name,
-            backend_tech_stack=backend_tech_stack,
-            sprint_planning_dir=sprint_planning_dir,
-            output_dir=output_dir,
-        )
-
-        parent_dir = Path("output").resolve()
-        client = MultiServerMCPClient({
-            "filesystem": {
-                "command": "npx",
-                "args": ["-y", "@modelcontextprotocol/server-filesystem", str(parent_dir)],
-                "transport": "stdio",
-            }
-        })
-
         tools = await client.get_tools()
         agent = create_react_agent("openai:gpt-4.1", tools)
 
