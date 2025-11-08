@@ -138,7 +138,7 @@ async def scrum_master_node_async(state: GraphState):
         print("   🤖 Agente Scrum Master ejecutando planificación...")
 
         # Invocar agente
-        await agent.ainvoke({"messages": prompt})
+        await agent.ainvoke({"messages": prompt}, {"recursion_limit": 100})
 
         print("📋 Scrum Master - Proceso completado.")
 

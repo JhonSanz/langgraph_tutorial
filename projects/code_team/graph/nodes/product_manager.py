@@ -132,7 +132,7 @@ async def product_manager_node_async(state: GraphState):
         tools = await client.get_tools()
         agent = create_react_agent("openai:gpt-4.1", tools)
 
-        await agent.ainvoke({"messages": prompt})
+        await agent.ainvoke({"messages": prompt}, {"recursion_limit": 100})
 
         print("👔 Product Manager - Proceso completado.")
 

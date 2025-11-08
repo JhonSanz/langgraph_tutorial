@@ -38,8 +38,8 @@ def create_backend_subgraph():
     subgraph.add_node("backend_setup", backend_setup_node_async)
     subgraph.add_node("backend_models", backend_models_node_async)
     subgraph.add_node("backend_schemas", backend_schemas_node_async)
-    # subgraph.add_node("backend_crud", backend_crud_node_async)
-    # subgraph.add_node("backend_api", backend_api_node_async)
+    subgraph.add_node("backend_crud", backend_crud_node_async)
+    subgraph.add_node("backend_api", backend_api_node_async)
     # subgraph.add_node("backend_tests", backend_tests_node_async)
 
     # Definir flujo secuencial
@@ -47,9 +47,9 @@ def create_backend_subgraph():
 
     subgraph.add_edge("backend_setup", "backend_models")
     subgraph.add_edge("backend_models", "backend_schemas")
-    # subgraph.add_edge("backend_schemas", "backend_crud")
-    # subgraph.add_edge("backend_crud", "backend_api")
+    subgraph.add_edge("backend_schemas", "backend_crud")
+    subgraph.add_edge("backend_crud", "backend_api")
     # subgraph.add_edge("backend_api", "backend_tests")
-    subgraph.add_edge("backend_schemas", END)
+    subgraph.add_edge("backend_api", END)
 
     return subgraph.compile()

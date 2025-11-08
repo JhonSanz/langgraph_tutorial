@@ -102,20 +102,26 @@ async def backend_setup_node_async(state: GraphState):
 
     # MCP client
     parent_dir = Path(main_output).resolve()
-    client = MultiServerMCPClient({
-        "filesystem": {
-            "command": "npx",
-            "args": ["-y", "@modelcontextprotocol/server-filesystem", str(parent_dir)],
-            "transport": "stdio",
+    client = MultiServerMCPClient(
+        {
+            "filesystem": {
+                "command": "npx",
+                "args": [
+                    "-y",
+                    "@modelcontextprotocol/server-filesystem",
+                    str(parent_dir),
+                ],
+                "transport": "stdio",
+            }
         }
-    })
+    )
 
     try:
         tools = await client.get_tools()
         agent = create_react_agent("openai:gpt-4.1", tools)
 
         print("   🤖 Agente creando estructura base...")
-        await agent.ainvoke({"messages": prompt})
+        await agent.ainvoke({"messages": prompt}, {"recursion_limit": 100})
 
         summary = "Backend Setup - Estructura base creada: main.py, core/, deps.py, requirements.txt"
         print(f"✅ {summary}")

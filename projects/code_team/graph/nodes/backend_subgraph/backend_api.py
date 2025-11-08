@@ -23,6 +23,7 @@ UBICACIÓN:
 - Lee CRUD: {output_dir}/app/crud/
 - Lee schemas: {output_dir}/app/schemas/
 - Lee tareas: {sprint_planning_dir}/backend_tasks.md
+- Lee contexto: {user_stories_dir}/
 - Escribe en: {output_dir}/app/api/v1/endpoints/
 
 TAREA: Crear endpoints FastAPI para cada entidad
@@ -50,6 +51,7 @@ Estructura:
 - Monta el router v1 en main.py si no está
 
 NO uses placeholders. Código production-ready con validaciones y error handling.
+Asegúrate de que los endpoints estén disponibles en la API desde main.py.
 """
 
 
@@ -60,35 +62,44 @@ async def backend_api_node_async(state: GraphState):
 
     print("\n🚀 Backend API - Creando endpoints FastAPI...")
 
-    try:
-        project_name = state.get("project_name", "test_project")
-        backend_tech_stack = state.get("backend_stack", "FastAPI, PostgreSQL, SQLAlchemy")
-        sprint_planning_dir = state.get("sprint_planning_dir", "")
-        output_dir = state.get("backend_output_dir", "")
+    project_name = state.get("project_name", "test_project")
+    backend_tech_stack = state.get("backend_stack", "FastAPI, PostgreSQL, SQLAlchemy")
+    sprint_planning_dir = state.get("sprint_planning_dir", "")
+    user_stories_dir = state.get("user_stories_dir", "")
+    output_dir = state.get("backend_output_dir", "")
+    main_output = state.get("main_output")
 
-        print(f"   📖 Leyendo CRUD y schemas...")
+    print(f"   📖 Leyendo CRUD y schemas...")
 
-        prompt = BACKEND_API_PROMPT.format(
-            project_name=project_name,
-            backend_tech_stack=backend_tech_stack,
-            sprint_planning_dir=sprint_planning_dir,
-            output_dir=output_dir,
-        )
+    prompt = BACKEND_API_PROMPT.format(
+        project_name=project_name,
+        backend_tech_stack=backend_tech_stack,
+        user_stories_dir=user_stories_dir,
+        sprint_planning_dir=sprint_planning_dir,
+        output_dir=output_dir,
+    )
 
-        parent_dir = Path("output").resolve()
-        client = MultiServerMCPClient({
+    parent_dir = Path(main_output).resolve()
+    client = MultiServerMCPClient(
+        {
             "filesystem": {
                 "command": "npx",
-                "args": ["-y", "@modelcontextprotocol/server-filesystem", str(parent_dir)],
+                "args": [
+                    "-y",
+                    "@modelcontextprotocol/server-filesystem",
+                    str(parent_dir),
+                ],
                 "transport": "stdio",
             }
-        })
+        }
+    )
 
+    try:
         tools = await client.get_tools()
         agent = create_react_agent("openai:gpt-4.1", tools)
 
         print("   🤖 Agente creando endpoints...")
-        await agent.ainvoke({"messages": prompt})
+        await agent.ainvoke({"messages": prompt}, {"recursion_limit": 100})
 
         summary = "Backend API - Endpoints FastAPI creados en app/api/v1/endpoints/"
         print(f"✅ {summary}")
